@@ -158,27 +158,11 @@ agent-dump 只覆盖到 ZCode 等工具的**默认安装路径**。正式上课�
 
 ---
 
-## 四、真机测试清单（给刘鑫祥）
-
-| 电脑 | 系统 | Python 版本 | agent-dump 版本 | 自检 | detect 找到的工具 | 漏网敏感信息 | 备注 |
-|---|---|---|---|---|---|---|---|
-| | | | | | | | |
-
-- [ ] `pip install agent-dump` 在 Windows 上一次装好（必要时用清华镜像）
-- [ ] `detect` 第一行显示 agent-dump 版本；ZCode、WorkBuddy 的计数接近实际
-- [ ] `pick` 页面在 Windows 默认浏览器能否正常打开和提交
-- [ ] 在 WorkBuddy、Codex、ZCode 里分别说「用 workbench-coach 帮我搭个人工作台」，能否走完 5 步并跑出第一份结果
-- [ ] 用工具自带的定时任务设置触发器，第二天能否自动运行，并且只处理新内容
-
----
-
-## 五、致谢
+## 四、致谢
 
 - [agent-dump](https://github.com/xingkaixin/agent-dump)（MIT）：本地会话读取与统一导出。
 - 同类项目可作参考：[cass](https://github.com/Dicklesworthstone/coding_agent_session_search)、[ctx](https://ctx.rs)、[convx](https://github.com/pascalwhoop/convx)、[Callimachus](https://github.com/BetaBots-LLC/callimachus)。
 
-## 六、课堂话术
+## 许可
 
-- 「你在不同 AI 工具里的会话，天然不在同一个上下文。我们做的，是第一次把它们放进同一个上下文里整理。」
-- 「这不是模板，这是你的。」
-- 「做不了？不存在的。评审只会告诉你：换个方式，先做这一步。」
+MIT，见 [LICENSE](LICENSE)。
