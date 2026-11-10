@@ -1,0 +1,6 @@
+{"type": "user", "sessionId": "wb-1", "cwd": "/Users/xiaozhou/WorkBuddy/会议纪要", "timestamp": "2026-11-07T15:00:00+08:00", "message": {"role": "user", "content": "把这份周会录音转写整理成纪要，参会人有王姐、阿杰、小周"}}
+{"type": "assistant", "sessionId": "wb-1", "timestamp": "2026-11-07T15:01:00+08:00", "message": {"role": "assistant", "content": "已整理：议题一 销售与损耗……"}}
+{"type": "user", "sessionId": "wb-1", "cwd": "/Users/xiaozhou/WorkBuddy/会议纪要", "timestamp": "2026-11-07T15:04:00+08:00", "message": {"role": "user", "content": "行动项里阿杰的申请是下周三前，帮我换算成日期"}}
+{"type": "assistant", "sessionId": "wb-1", "timestamp": "2026-11-07T15:05:00+08:00", "message": {"role": "assistant", "content": "2026-11-11（周三）。"}}
+{"type": "user", "sessionId": "wb-1", "cwd": "/Users/xiaozhou/WorkBuddy/会议纪要", "timestamp": "2026-11-07T15:08:00+08:00", "message": {"role": "user", "content": "王姐的手机 13912345678，纪要里要不要写？"}}
+{"type": "assistant", "sessionId": "wb-1", "timestamp": "2026-11-07T15:09:00+08:00", "message": {"role": "assistant", "content": "建议不要写入纪要。"}}

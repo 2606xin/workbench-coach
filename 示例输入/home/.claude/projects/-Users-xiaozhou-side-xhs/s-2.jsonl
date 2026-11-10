@@ -1,0 +1,6 @@
+{"type": "user", "sessionId": "s-2", "cwd": "/Users/xiaozhou/side/xhs", "timestamp": "2026-11-08T21:00:00+08:00", "message": {"role": "user", "content": "上周那篇凌晨面包房的数据：点赞 320、收藏 210，帮我分析下为什么比之前好"}}
+{"type": "assistant", "sessionId": "s-2", "timestamp": "2026-11-08T21:02:00+08:00", "message": {"role": "assistant", "content": [{"type": "text", "text": "收藏/点赞比高，说明内容有实用价值……"}]}}
+{"type": "user", "sessionId": "s-2", "timestamp": "2026-11-08T21:03:00+08:00", "message": {"role": "user", "content": [{"type": "tool_result", "content": "(工具输出，略)"}]}}
+{"type": "user", "sessionId": "s-2", "cwd": "/Users/xiaozhou/side/xhs", "timestamp": "2026-11-08T21:05:00+08:00", "message": {"role": "user", "content": "我的 OpenAI key 是 sk-proj-AbCdEfGhIjKlMnOpQrStUvWx0123456789，帮我写个脚本批量生成标题"}}
+{"type": "assistant", "sessionId": "s-2", "timestamp": "2026-11-08T21:07:00+08:00", "message": {"role": "assistant", "content": [{"type": "text", "text": "建议不要在对话中直接粘贴密钥……"}]}}
+{"type": "user", "sessionId": "s-2", "timestamp": "2026-11-08T21:08:00+08:00", "message": {"role": "user", "content": [{"type": "tool_result", "content": "(工具输出，略)"}]}}
