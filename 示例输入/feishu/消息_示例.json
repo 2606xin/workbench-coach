@@ -1,0 +1,21 @@
+{
+  "chat": "测试群（虚构）",
+  "messages": [
+    {"msg_type": "text",
+     "content": "{\"text\":\"今晚8点复盘会，记得带门店数据\"}",
+     "create_time": "2026-11-06 10:30",
+     "sender": {"name": "王姐", "sender_type": "user"}},
+    {"msg_type": "interactive",
+     "content": "{\"data\":{\"schema\":{\"initial_card\":false}},\"elements\":[{\"tag\":\"div\",\"text\":{\"tag\":\"lark_md\",\"content\":\"**KOL 快讯 11:00** 新增 5 条，其中 2 条需即时关注\"}},{\"tag\":\"hr\"}]}",
+     "create_time": "2026-11-06 11:00",
+     "sender": {"name": "小T", "sender_type": "app"}},
+    {"msg_type": "post",
+     "content": "{\"zh_cn\":{\"title\":\"周报草稿\",\"content\":[[{\"tag\":\"text\",\"text\":\"本周完成三件事\"},{\"tag\":\"text\",\"text\":\"，下周验收\"}]]}}",
+     "create_time": "2026-11-06 18:00",
+     "sender": {"name": "小周", "sender_type": "user"}},
+    {"msg_type": "interactive",
+     "content": "<card title=\"🔁 双链套利 · 代理恢复\">\n**Clash 代理已恢复**，OKX 跨链通道重新可用\n</card>",
+     "create_time": "2026-11-06 20:00",
+     "sender": {"name": "小T", "sender_type": "app"}}
+  ]
+}

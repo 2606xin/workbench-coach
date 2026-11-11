@@ -7,11 +7,13 @@
 
 子命令：
   detect    看看这台电脑上有哪些 AI 工具的本地会话（只统计，不输出内容）
+  connect   接入官方通道（v2）：connect feishu —— 检测 lark-cli 授权、写入 scope，之后 collect 自动拉飞书群消息
   discover  在常见目录里找「可能是会话记录」的文件，给新工具做适配用（只列文件名和大小）
   pick      打开本地页面：显示 AI 的落地分析，选择数据源（AI 会话 / 文件夹 / 收集箱）和触发器，并确认授权
   collect   按选择范围收集 → 脱敏 → 生成「素材包」；首次建基线，之后按游标增量
   build     按方案和选择，生成用户自己的工作台技能（SKILL.md）、输出模板和触发器设置说明
   feedback  反馈环：记下「好」或修改意见（写进 偏好.md，下次生成时遵守）；--review 汇总复盘
+  page      工作台主页：把每次的结果、偏好和运行状态汇总成 工作台数据.js，并检查主页没有外部资源
   push      把一份结果推送到企业微信群（地址只读环境变量 WECOM_WEBHOOK）
   import    后路：把手动导出的 .md / .txt / .json / .jsonl 放进来，同样脱敏
   redact    对任意文本文件做脱敏（也可用来自检：redact --self-test）
@@ -188,11 +190,12 @@ def clean(text: str) -> str:
 
 
 class Msg:
-    __slots__ = ("tool", "session", "project", "ts", "role", "text", "file")
+    __slots__ = ("tool", "session", "project", "ts", "role", "text", "file", "who")
 
-    def __init__(self, tool, session, project, ts, role, text, file):
+    def __init__(self, tool, session, project, ts, role, text, file, who=None):
         self.tool, self.session, self.project = tool, session, project
         self.ts, self.role, self.text, self.file = ts, role, text, file
+        self.who = who  # 发言者名字（飞书等外部通道用；AI 会话不设）
 
 
 def generic_obj(obj: dict):
@@ -584,6 +587,149 @@ def engine_label() -> str:
     return f"{v}（WorkBuddy、CodeBuddy 用内置解析补充）"
 
 
+# ------------------------------------------------ 飞书（官方通道，v2） ----
+# 走飞书官方 CLI（lark-cli，开源）：只读两件事——列群、按日期拉消息；授权范围＝用户身份可见的群
+# （平台安全模型：你/机器人不在的群读不到）。令牌由 lark-cli 存系统钥匙串，这里只起子进程，不落凭证。
+# 没装 / 未授权 / 授权过期 → 记一条提示后跳过，不影响其他数据源（与 agent-dump 同一降级模式）。
+
+def lark_bin() -> str | None:
+    return shutil.which("lark-cli")
+
+
+def lark_run(args: list[str], timeout: int = 120):
+    import subprocess
+    b = lark_bin()
+    if not b:
+        return None
+    try:
+        r = subprocess.run([b] + args, capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", timeout=timeout)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    try:
+        return json.loads(r.stdout)
+    except json.JSONDecodeError:
+        return None
+
+
+def feishu_auth() -> dict:
+    """{ok, user, hint}；ok=False 时 hint 是下一步命令。"""
+    d = lark_run(["auth", "status"]) or {}
+    u = ((d.get("identities") or {}).get("user") or {})
+    if u.get("available") and u.get("status") in ("ready", "needs_refresh"):
+        return {"ok": True, "user": u.get("userName") or "已授权用户"}
+    return {"ok": False, "user": None,
+            "hint": "npm install -g @larksuite/cli && lark-cli auth login --domain im（扫码时只勾读消息权限）"}
+
+
+def feishu_chats() -> list[dict]:
+    d = lark_run(["im", "+chat-list", "--as", "user"]) or {}
+    return [{"id": c.get("chat_id"), "name": c.get("name") or "(未命名群)"}
+            for c in ((d.get("data") or {}).get("chats") or []) if c.get("chat_id")]
+
+
+def feishu_msg_text(m: dict) -> str:
+    """一条 lark-cli 消息 → 纯文本。卡片(interactive)的正文在顶层 content 字段里，逐层取 text/content/title。"""
+    raw = m.get("content")
+    t = m.get("msg_type", "")
+    try:
+        j = json.loads(raw) if isinstance(raw, str) and raw else (raw if isinstance(raw, dict) else {})
+    except json.JSONDecodeError:
+        j = None  # 卡片常以 <card …>…</card> 明文返回，本身就是可读文本
+    if j is None:
+        return str(raw or "").strip()
+    if t == "text":
+        return str(j.get("text", "")).strip()
+    if t == "post":
+        out, title = [], None
+        if isinstance(j, dict):
+            for lang in ([j] if isinstance(j.get("content"), list) else list(j.values())):
+                if isinstance(lang, dict) and isinstance(lang.get("content"), list):
+                    if not title:
+                        t0 = lang.get("title")
+                        title = (t0.get("zh_cn") or t0.get("title")) if isinstance(t0, dict) else t0
+                    for para in lang["content"]:
+                        if isinstance(para, list):
+                            out += [e.get("text", "") for e in para if isinstance(e, dict) and e.get("tag") == "text"]
+        return (f"{title} " if title else "") + " ".join(x for x in out if x).strip()
+    if t == "interactive":
+        seen, out = set(), []
+
+        def walk(x):
+            if isinstance(x, dict):
+                for k, v in x.items():
+                    if k in ("text", "content", "title") and isinstance(v, str) and v.strip() and v not in seen:
+                        seen.add(v)
+                        out.append(v.strip())
+                    else:
+                        walk(v)
+            elif isinstance(x, list):
+                for i in x:
+                    walk(i)
+        walk(j)
+        return " ¦ ".join(out)
+    return f"[{t}]" if t else ""
+
+
+def load_feishu(since: dt.datetime | None, days: int = 14, only_chats: set[str] | None = None) -> list[Msg]:
+    """拉用户身份可见各群 since 之后的消息（基线＝最近 days 天）。失败/未装 → [] 并记提示。"""
+    if not lark_bin():
+        return []
+    a = feishu_auth()
+    if not a["ok"]:
+        ENGINE["notes"].append(f"飞书未接入：{a['hint']}")
+        return []
+    start = (since or dt.datetime.now(UTC) - dt.timedelta(days=days)).strftime("%Y-%m-%d")
+    msgs: list[Msg] = []
+    for c in feishu_chats():
+        if only_chats and c["id"] not in only_chats:
+            continue
+        d = lark_run(["im", "+chat-messages-list", "--chat-id", c["id"], "--start", start, "--as", "user"]) or {}
+        for m in (d.get("data") or {}).get("messages") or []:
+            ts = parse_time(m.get("create_time"))
+            if ts is None or (since is not None and ts <= since):
+                continue
+            text = feishu_msg_text(m)
+            if not text:
+                continue
+            sender = (m.get("sender") or {}).get("name") or (m.get("sender") or {}).get("sender_type") or "?"
+            msgs.append(Msg("飞书", c["name"], f"飞书/{c['name']}", ts, "user", text, None, who=str(sender)))
+    return msgs
+
+
+def connect_feishu(args):
+    out = Path(args.out).expanduser() if args.out else default_out()
+    out.mkdir(parents=True, exist_ok=True)
+    if not lark_bin():
+        print("未安装 lark-cli（飞书官方 CLI）。安装：npm install -g @larksuite/cli")
+        print("装好后重新运行：python3 scripts/workbench.py connect feishu")
+        return 1
+    a = feishu_auth()
+    if not a["ok"]:
+        print("lark-cli 还没完成飞书授权，两步：")
+        print("  1) lark-cli auth login --domain im   （扫码链接，只勾「读消息」类权限）")
+        print("  2) 扫码确认后，重新运行 connect feishu")
+        return 1
+    chats = feishu_chats()
+    scope_p = out / "scope.json"
+    scope = json.loads(scope_p.read_text(encoding="utf-8")) if scope_p.exists() else {}
+    scope["feishu"] = {"enabled": True, "chats": [], "connected_at": dt.datetime.now(UTC).isoformat()}
+    scope_p.write_text(json.dumps(scope, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"✓ 飞书已接入：用户「{a['user']}」，可见 {len(chats)} 个群，下次 collect 自动拉取增量。")
+    if chats:
+        preview = "、".join(c["name"] for c in chats[:5])
+        print(f"  群（前 5 个）：{preview}{'…' if len(chats) > 5 else ''}")
+    print("  范围＝你的账号可见的群（平台安全模型：不在的群读不到）。配置：scope.json 的 feishu 节")
+    print("  停用：feishu.enabled 改 false，或 lark-cli auth logout")
+    return 0
+
+
+def connect_cmd(args):
+    if args.channel == "feishu":
+        return connect_feishu(args)
+    return 2
+
+
 # ------------------------------------------------------------- 工作台 ----
 def default_out() -> Path:
     return Path.home() / "清见工作台"
@@ -822,6 +968,7 @@ __PLAN__
 <textarea name="out_items" rows="__OUT_ROWS__">__OUT_ITEMS__</textarea></label>
 <label class="field"><span>给谁看</span><input type="text" name="out_aud" value="__OUT_AUD__"></label>
 <div class="field"><span>什么样子</span>
+<label class="row"><input type="radio" name="out_format" value="page" __FMT_PAGE__><span>工作台主页<span class="hint">推荐：每天打开同一个网页；AI 按你的内容设计版式，每次运行后自动更新</span></span></label>
 <label class="row"><input type="radio" name="out_format" value="md" __FMT_MD__><span>文字版（Markdown）<span class="hint">最稳，任何工具都能打开</span></span></label>
 <label class="row"><input type="radio" name="out_format" value="html" __FMT_HTML__><span>网页简报<span class="hint">套用清见的网页模板，排版好看，可以直接用浏览器打开或转发</span></span></label></div>
 <div class="field"><span>怎么交付</span>
@@ -884,7 +1031,7 @@ function trigText(){var t=val('trigger');
   return '说「'+($('[name=phrase]').value||'运行我的工作台')+'」时';}
 function say(){
   var src=srcText(),items=$('[name=out_items]').value.split('\\n').filter(function(x){return x.trim()}).length;
-  var fmt=val('out_format')==='html'?'网页简报':'文字版纪要';
+  var fmt={html:'网页简报',page:'工作台主页'}[val('out_format')]||'文字版纪要';
   $('#say').innerHTML=src?('读取<b>'+esc(src)+'</b>，<b>'+esc(trigText())+'</b>生成一份<b>'+items+' 块的'+fmt+'</b>。')
     :'还没有选择数据源。';
   if(!$('#ok').checked)$('#say').innerHTML+='<span class="why">勾选第 4 步的「我已了解」后，就可以确认。</span>';
@@ -995,7 +1142,7 @@ def _success_page(form: dict) -> str:
     t = g("trigger", "daily")
     trig = {"daily": f"每天 {g('daily_time')}", "weekly": f"每{g('weekday')} {g('weekly_time')}"}.get(t, f"手动：说「{g('phrase')}」")
     items = "、".join(x.strip() for x in g("out_items").splitlines() if x.strip())
-    fmt = "网页简报" if g("out_format") == "html" else "文字版"
+    fmt = {"html": "网页简报", "page": "工作台主页"}.get(g("out_format"), "文字版")
     skills = "、".join(form.get("skill", [])) or "无"
     return ("<!doctype html><html lang='zh-CN'><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
             "<title>已保存</title><style>body{font-family:'PingFang SC','Microsoft YaHei',system-ui,sans-serif;background:#eef3f3;color:#14262b;"
@@ -1049,6 +1196,7 @@ def pick(args):
     out_items = _out_items(plan)
     fmt = str((plan.get("output") or {}).get("形式", "") if isinstance(plan.get("output"), dict) else "")
     fmt_html = fmt in ("html", "网页", "网页简报")
+    fmt_page = fmt in ("page", "主页", "工作台主页")
     t_time = trig.get("time", "18:00")
     page = (PICK_HTML.replace("__CSS__", PICK_CSS).replace("__PLAN__", _plan_card(plan))
             .replace("__SOURCES__", tools_html).replace("__SUMMARY__", html.escape(all_summary))
@@ -1066,7 +1214,8 @@ def pick(args):
             .replace("__OUT_ITEMS__", html.escape("\n".join(out_items)))
             .replace("__OUT_ROWS__", str(max(3, len(out_items) + 1)))
             .replace("__OUT_AUD__", html.escape(_out_field(plan, "给谁看", "自己")))
-            .replace("__FMT_MD__", ck(not fmt_html)).replace("__FMT_HTML__", ck(fmt_html))
+            .replace("__FMT_MD__", ck(not fmt_html and not fmt_page)).replace("__FMT_HTML__", ck(fmt_html))
+            .replace("__FMT_PAGE__", ck(fmt_page))
             .replace("__SKILLS__", _skills_block(plan)))
     left = re.findall(r"__[A-Z_]+__", page)
     if left:
@@ -1142,7 +1291,7 @@ def pick(args):
             "items": [x.strip() for x in g("out_items").splitlines() if x.strip()] or ["今天做了什么", "待收尾"],
             "audience": g("out_aud", "自己").strip() or "自己",
             "delivery": ["save"] + (["wecom"] if "wecom" in result.get("deliver", []) else []),
-            "format": "html" if g("out_format", "md") == "html" else "md",
+            "format": g("out_format", "md") if g("out_format", "md") in ("html", "page") else "md",
         },
         "skills": [x for x in result.get("skill", []) if skill_allowed(x)],
         "plan": plan.get("name", ""),
@@ -1156,7 +1305,7 @@ def pick(args):
     print("数据源：" + "、".join({"ai_sessions": "本地 AI 会话", "folder": "本地文件夹", "inbox": "收集箱"}[s] for s in srcs))
     print("触发器：" + trigger_text(trigger))
     print("输出物：" + scope["output"]["type"] + "（" + "、".join(scope["output"]["items"]) + "）"
-          + ("，网页简报" if scope["output"]["format"] == "html" else "，文字版"))
+          + {"html": "，网页简报", "page": "，工作台主页"}.get(scope["output"]["format"], "，文字版"))
     if scope["skills"]:
         print("技能：" + "、".join(scope["skills"]) + "（搭建时安装）")
     return 0
@@ -1243,7 +1392,7 @@ def write_pack(msgs, out: Path, red: Redactor, title: str, note: str, include_as
             for m in ms[:per_sess]:
                 t = m.text
                 t = t if len(t) <= per_msg else t[:per_msg] + "……（已截断）"
-                who = "文件" if tool in FILE_TOOLS else "我" if m.role == "user" else "AI"
+                who = m.who or ("文件" if tool in FILE_TOOLS else "我" if m.role == "user" else "AI")
                 lines.append(f"- **{who}**：" + t.replace("\n", "\n  "))
             if len(ms) > per_sess:
                 lines.append(f"- ……本段会话另有 {len(ms) - per_sess} 条未列出")
@@ -1308,14 +1457,28 @@ def collect(args):
     if scope.get("inbox"):
         (out / "收集箱").mkdir(exist_ok=True)
         msgs += load_folders([str(out / "收集箱")], "收集箱")
+    # 飞书（官方通道，v2.2）：scope.json feishu.enabled 时拉取。游标独立存放，
+    # 因为飞书时间是本地口径（无时区标注），不能混进 AI 会话的 UTC 游标。
+    fmsgs = []
+    fs = scope.get("feishu") or {}
+    if fs.get("enabled"):
+        fcur = parse_time(st.get("feishu_cursor"))
+        if fcur is None:
+            fcur = now - dt.timedelta(days=args.days)  # 飞书侧首次基线同样只取最近 N 天
+        only_chats = set(fs.get("chats") or []) or None
+        fmsgs = [m for m in load_feishu(fcur, args.days, only_chats) if m.ts > fcur]
+    ai_msgs = msgs          # AI 会话 / 文件夹 / 收集箱（游标与选择逻辑沿用原口径）
+    msgs = msgs + fmsgs     # 合并后进素材包
     if not msgs:
+        if (scope.get("feishu") or {}).get("enabled") and st.get("feishu_cursor"):
+            print("没有新的会话，今天不需要更新。")  # 飞书增量拉完为空：正常，不是数据源缺失
+            return 0
         print("所选数据源里还没有内容。收集箱为空的话，先往里放一个文件再试。")
         return 1
     if st.get("baseline_done") and not args.rebuild:
         cur = parse_time(st.get("cursor"))
-        new = [m for m in msgs if cur is None or m.ts > cur]
+        sel = [m for m in ai_msgs if cur is None or m.ts > cur] + fmsgs
         title, note = "会话素材包 · 增量", f"自上次（{cur.astimezone().strftime('%Y-%m-%d %H:%M') if cur else '—'}）以来的新会话"
-        sel = new
     else:
         sessions = {(m.tool, m.session) for m in msgs}
         chars = sum(len(m.text) for m in msgs)
@@ -1331,7 +1494,10 @@ def collect(args):
         return 0
     red = Redactor(home)
     p = write_pack(sel, out, red, title, note, scope.get("assistant", False), args.budget)
-    st["cursor"] = max(m.ts for m in msgs).isoformat()
+    if ai_msgs:
+        st["cursor"] = max(m.ts for m in ai_msgs).isoformat()  # 只按 AI 会话口径推进
+    if fmsgs:
+        st["feishu_cursor"] = max(m.ts for m in fmsgs).isoformat()
     st["baseline_done"] = True
     st["runs"].append({"at": now.isoformat(), "type": "增量" if "增量" in title else "基线",
                        "messages": len(sel), "sessions": len({(m.tool, m.session) for m in sel}),
@@ -1519,12 +1685,21 @@ def build(args):
         web_tpl.write_text(_web_template(name, items), encoding="utf-8")
         format_line = (f"网页简报。先按 `{tpl}` 写好 Markdown（反馈、推送都用它），再按 `{web_tpl}` 的版式生成同名的 .html："
                        "只替换 <main> 里的内容和标题日期，不改样式；不引入任何外部资源。")
+    elif fmt == "page":
+        brief = wf / "主页设计说明.md"
+        brief.write_text(PAGE_BRIEF.format(name=name, output_type=output_type, audience=audience,
+                         scenario=plan.get("scenario") or "", items="\n".join(f"- {it}" for it in items),
+                         out=out, py=py, script=script), encoding="utf-8")
+        format_line = (f"工作台主页。每次先按 `{tpl}` 写好 Markdown（反馈、推送都用它），再把同样的内容写成同名的 .json"
+                       f"（结构见 `{brief}`），然后运行 `{py} \"{script}\" page --out \"{out}\"` 更新主页数据。"
+                       f"主页 `{out / '工作台.html'}` 只在第一次、或我要求改版时按 `{brief}` 设计；平时只更新数据，不改页面。")
     else:
         format_line = "文字版（Markdown）"
     skills = [x for x in (scope.get("skills") or []) if skill_allowed(x)]
     skills_line = ("无" if not skills else "、".join(f"`{x}`" for x in skills)
                    + "。生成时参考这些技能的方法；结构和版式仍以模板为准。没装好就先不用，不要中断。")
-    dl = f"保存为 `{out / '输出'}/YYYY-MM-DD.md`" + ("（网页简报另存同名 .html）" if fmt == "html" else "")
+    dl = f"保存为 `{out / '输出'}/YYYY-MM-DD.md`" + {"html": "（网页简报另存同名 .html）",
+                                                      "page": "（另存同名 .json，并更新工作台主页）"}.get(fmt, "")
     if "wecom" in delivery:
         dl += f"；然后推送到企业微信群：`{py} \"{script}\" push \"{out}/输出/YYYY-MM-DD.md\"`（读取环境变量 WECOM_WEBHOOK；没有设置就只保存，并提醒我）"
     (wf / "SKILL.md").write_text(BUILD_SKILL.format(
@@ -1552,12 +1727,161 @@ def build(args):
     print(f"  输出模板.md    输出物的固定结构：" + "、".join(items) + "、我的判断")
     if fmt == "html":
         print(f"  网页模板.html  网页简报的版式（清见样式，无外部资源）")
+    if fmt == "page":
+        print(f"  主页设计说明.md  工作台主页的设计要求和数据结构（版式由 AI 按你的内容设计）")
+        page_data(out)
     print(f"  触发器设置.md  {trigger_text(trig)}")
     if skills:
         print("需要安装的技能（经用户确认后再装）：")
         for x in skills:
             print(f"  npx skills add {x} -g -y")
     print("下一步：运行一次 collect，然后让 AI 按这个 SKILL.md 生成第一份结果。")
+    return 0
+
+
+# ------------------------------------------------------------- 工作台主页 ----
+PAGE_BRIEF = """# 工作台主页设计说明：{name}
+
+主页是一个本地网页 `{out}/工作台.html`，用户每天打开它看结果。版式由你（AI）按这个人的内容设计；
+内容全部来自数据文件，每次运行只更新数据，页面不用重写。
+
+## 这个人
+
+- 场景：{scenario}
+- 输出物：{output_type}，给{audience}看
+- 固定的几块（主页要突出这些，顺序可以按重要程度调整）：
+{items}
+
+## 必须遵守
+
+1. 单个文件 `{out}/工作台.html`，用 `<script src="工作台数据.js"></script>` 读取数据（变量 `window.WORKBENCH`）。
+   不要用 fetch 或 XMLHttpRequest：双击打开（file://）时它们读不到本地文件。
+2. 不引入任何外部资源：不用 CDN、网络字体、网络图片、统计脚本；页面不发起任何网络请求。字体用系统字体。
+3. 页面里不写死任何具体内容：日期、要点、判断都从数据里取，这样每次运行后刷新页面就是最新的。
+4. 数据为空、某一块没有内容、只有一天的数据时，页面都要正常显示，并给出一句提示。
+5. 页面上可以勾选的东西（例如「我的判断」已处理），状态存在 localStorage，读写都要包在 try/catch 里；
+   清掉也不影响内容。不要尝试把数据写回文件。
+6. 每一块旁边放一个「改这里」按钮：点击后把一句反馈（例如「『今日要点』这一块：」）复制到剪贴板，
+   提示用户粘贴回 AI 工具说明要怎么改。复制失败时，改为选中这句话让用户手动复制。
+7. 手机宽度也能看；支持打印；键盘可以操作。
+8. 安装了设计类技能（例如 frontend-design）就按它的方法设计；版式要贴合这个人的内容，不要套通用模板。
+
+## 建议的模块（按需取舍）
+
+- 今天：最新一次结果，按上面的几块展示，顶部一句话总结
+- 我的判断：需要用户自己拍板的事，可勾选
+- 最近几天：时间线，点开看历史（每条都有对应的 .md 文件路径）
+- 它记住的偏好：来自 偏好.md，让用户看到「越用越懂我」
+- 运行状态：数据源、触发器、上次运行时间、累计运行次数、遮挡了多少处敏感信息
+
+## 数据结构（工作台数据.js，由脚本生成，不要手改）
+
+```
+window.WORKBENCH = {{
+  "name": "工作台名字", "updated": "生成时间",
+  "blocks": ["固定的几块小标题"],
+  "trigger": "每天 18:00", "sources": ["本地 AI 会话（全部工具）", "收集箱"],
+  "runs": [  // 新的在前，最多 60 次
+    {{"date": "YYYY-MM-DD", "title": "…", "summary": "一句话",
+     "sections": [{{"title": "块名", "items": ["…"]}}],
+     "judgments": ["需要我决定的问题"],
+     "stats": {{"tools": 3, "sessions": 12, "redacted": 4}},
+     "md": "输出/YYYY-MM-DD.md"}}
+  ],
+  "prefs": ["偏好规则"], "feedback": {{"good": 3, "edits": 2}},
+  "state": {{"runs": 12, "last_run": "…"}}
+}}
+```
+
+每次运行写的 `输出/YYYY-MM-DD.json` 就是 runs 里的一项（date、title、summary、sections、judgments、stats），
+写完运行：`{py} "{script}" page --out "{out}"`。
+"""
+
+_EXTERNAL = re.compile(r"""(?:src|href)\s*=\s*["']?\s*(?:https?:)?//|@import\s|url\(\s*["']?\s*(?:https?:)?//|\bfetch\s*\(|XMLHttpRequest""", re.I)
+
+
+def page_data(out: Path) -> Path:
+    """把 输出/*.json、偏好、反馈和运行状态汇总成 工作台数据.js（统一再脱敏一遍）。"""
+    red = Redactor(Path.home())
+
+    def clean(v):
+        if isinstance(v, str):
+            return red(v)
+        if isinstance(v, list):
+            return [clean(x) for x in v]
+        if isinstance(v, dict):
+            return {k: clean(x) for k, x in v.items()}
+        return v
+
+    runs, bad = [], []
+    for f in sorted((out / "输出").glob("*.json"), reverse=True) if (out / "输出").exists() else []:
+        try:
+            r = json.loads(f.read_text(encoding="utf-8"))
+            if not isinstance(r, dict) or not isinstance(r.get("sections", []), list):
+                raise ValueError("格式不对")
+        except (ValueError, OSError):
+            bad.append(f.name)
+            continue
+        r.setdefault("date", f.stem)
+        r.setdefault("md", f"输出/{f.stem}.md")
+        runs.append(clean({k: r.get(k) for k in ("date", "title", "summary", "sections", "judgments", "stats", "md") if k in r}))
+        if len(runs) >= 60:
+            break
+    scope = json.loads((out / "scope.json").read_text(encoding="utf-8")) if (out / "scope.json").exists() else {}
+    plan = json.loads((out / "方案.json").read_text(encoding="utf-8")) if (out / "方案.json").exists() else {}
+    fb = out / "反馈.jsonl"
+    rows = [json.loads(l) for l in fb.read_text(encoding="utf-8").splitlines() if l.strip()] if fb.exists() else []
+    st = load_state(out)
+    srcs = []
+    if scope.get("use_sessions", True) and scope:
+        srcs.append("本地 AI 会话" + ("（全部工具）" if scope.get("mode") != "pick" else "（勾选的工具和项目）"))
+    srcs += [f"本地文件夹：{red.path(x)}" for x in scope.get("folders", [])]
+    if scope.get("inbox"):
+        srcs.append("收集箱")
+    data = {
+        "name": plan.get("name") or scope.get("plan") or "我的个人工作台",
+        "updated": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "blocks": (scope.get("output") or {}).get("items", []),
+        "trigger": trigger_text(scope["trigger"]) if scope.get("trigger") else "",
+        "sources": srcs,
+        "runs": runs,
+        "prefs": [red(x) for x in load_prefs(out)],
+        "feedback": {"good": sum(1 for r in rows if r.get("rating") == "good"), "edits": sum(1 for r in rows if r.get("text"))},
+        "state": {"runs": len(st.get("runs", [])), "last_run": (st.get("runs") or [{}])[-1].get("at", "") if st.get("runs") else ""},
+    }
+    js = out / "工作台数据.js"
+    body = json.dumps(data, ensure_ascii=False, indent=1).replace("</", "<\\/")
+    js.write_text("// 由 workbench.py page 生成，请勿手改\nwindow.WORKBENCH = " + body + ";\n", encoding="utf-8")
+    if bad:
+        print("跳过格式不对的结果文件：" + "、".join(bad))
+    return js
+
+
+def page_cmd(args):
+    out = Path(args.out).expanduser() if args.out else default_out()
+    if not (out / "scope.json").exists():
+        print("还没有选择数据源和触发器，请先运行 pick。")
+        return 2
+    js = page_data(out)
+    n = js.read_text(encoding="utf-8").count('"date"')
+    print(f"已更新主页数据：{js}（{n} 次结果）")
+    home = out / "工作台.html"
+    if not home.exists():
+        briefs = sorted((out / "工作流").glob("*/主页设计说明.md")) if (out / "工作流").exists() else []
+        hint = briefs[0] if briefs else "工作流/<名字>/主页设计说明.md"
+        print(f"还没有主页：请按 {hint} 设计 {home}（只需要做一次）。")
+        return 0
+    text = home.read_text(encoding="utf-8", errors="replace")
+    probs = []
+    if "工作台数据.js" not in text:
+        probs.append("没有读取 工作台数据.js，内容不会自动更新")
+    hits = sorted(set(m.group(0).strip() for m in _EXTERNAL.finditer(text)))
+    if hits:
+        probs.append("引用了外部资源或发起网络请求：" + "、".join(hits[:5]))
+    if probs:
+        print("主页需要修改：\n  - " + "\n  - ".join(probs))
+        return 1
+    print(f"主页：{home}（用浏览器打开；建议设为书签）")
     return 0
 
 
@@ -1594,6 +1918,8 @@ def feedback(args):
         print(f"已记下，下次生成会遵守：{rec['text']}")
     else:
         print("已记下：这份满意。")
+    if (out / "工作台数据.js").exists():
+        page_data(out)
     return 0
 
 
@@ -1623,8 +1949,16 @@ def push(args):
 def detect(args):
     home = Path(args.home).expanduser() if args.home else Path.home()
     summ = summarize(load_all(home))
+    feishu_note = None
+    if lark_bin():
+        a = feishu_auth()
+        feishu_note = (f"已授权 {a['user']} · 可见 {len(feishu_chats())} 个群（connect feishu 接入）" if a["ok"]
+                       else "lark-cli 已装、未授权（connect feishu 看两步指引）")
     if args.json:
-        print(json.dumps({k: {**v, "projects": len(v["projects"])} for k, v in summ.items()}, ensure_ascii=False, indent=2))
+        d = {k: {**v, "projects": len(v["projects"])} for k, v in summ.items()}
+        if feishu_note:
+            d["飞书(官方通道)"] = feishu_note
+        print(json.dumps(d, ensure_ascii=False, indent=2))
         return 0
     if not summ:
         print("没有找到支持的 AI 工具本地会话。可尝试：discover（找新工具的存储位置）或 import（导入手动导出的记录）。")
@@ -1635,6 +1969,8 @@ def detect(args):
     print(f"在 {Redactor(home).path(str(home)) or '~'} 下找到：")
     for tool, d in sorted(summ.items()):
         print(f"  {tool:<12} {d['sessions']:>4} 个会话  {d['messages']:>6} 条消息  {d['first']} ～ {d['last']}  {len(d['projects'])} 个项目")
+    if feishu_note:
+        print(f"  飞书(官方)   {feishu_note}")
     return 0
 
 
@@ -1753,6 +2089,8 @@ def main(argv=None):
                        help="收集引擎：auto=装了 agent-dump 就用它（推荐），builtin=只用内置解析")
 
     p = sub.add_parser("detect"); common(p); p.add_argument("--json", action="store_true"); p.set_defaults(fn=detect)
+    p = sub.add_parser("connect"); common(p); p.add_argument("channel", choices=["feishu"],
+        help="接入官方通道：feishu=飞书（需 lark-cli，见 README「能力扩展」）"); p.set_defaults(fn=connect_cmd)
     p = sub.add_parser("discover"); common(p); p.set_defaults(fn=discover)
     p = sub.add_parser("pick"); common(p)
     p.add_argument("--port", type=int, default=0); p.add_argument("--no-browser", action="store_true")
@@ -1763,6 +2101,7 @@ def main(argv=None):
     p = sub.add_parser("feedback"); common(p); p.add_argument("text", nargs="?")
     p.add_argument("--good", action="store_true"); p.add_argument("--bad", action="store_true")
     p.add_argument("--review", action="store_true"); p.set_defaults(fn=feedback)
+    p = sub.add_parser("page"); common(p); p.set_defaults(fn=page_cmd)
     p = sub.add_parser("push"); p.add_argument("file"); p.add_argument("--dry-run", action="store_true"); p.set_defaults(fn=push)
     p = sub.add_parser("collect"); common(p)
     p.add_argument("--yes", action="store_true", help="已在对话里确认范围和授权（无浏览器时用），默认全局")

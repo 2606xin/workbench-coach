@@ -95,6 +95,27 @@ with tempfile.TemporaryDirectory() as t:
         fails.append("网页模板里出现了外部资源链接")
     if "frontend-design" not in sk2 or "evil-repo" in sk2 or "evil-repo" in log:
         fails.append("技能白名单没有生效：" + log)
+    # 能力扩展：工作台主页（版式由 AI 设计，脚本只管数据和检查）
+    sc["output"]["format"] = "page"
+    sp.write_text(json.dumps(sc, ensure_ascii=False), encoding="utf-8")
+    run("build", "--out", str(out))
+    (out / "输出").mkdir(exist_ok=True)
+    (out / "输出" / "2026-11-11.json").write_text(json.dumps({"date": "2026-11-11", "title": "测试", "summary": "联系 13900001111",
+        "sections": [{"title": "门店数据异常", "items": ["A 店客流下降"]}], "judgments": ["要不要调排班"]}, ensure_ascii=False), encoding="utf-8")
+    (out / "输出" / "坏文件.json").write_text("{不是json", encoding="utf-8")
+    code_p, log_p = run("page", "--out", str(out))
+    jsf = out / "工作台数据.js"
+    jst = jsf.read_text(encoding="utf-8") if jsf.exists() else ""
+    if not (wf2 / "主页设计说明.md").exists() or "门店数据异常" not in jst or "13900001111" in jst or "window.WORKBENCH" not in jst:
+        fails.append("工作台主页数据没有正确生成或没有脱敏：" + log_p)
+    (out / "工作台.html").write_text('<script src="https://cdn.example.com/x.js"></script><script src="工作台数据.js"></script>', encoding="utf-8")
+    code_bad, _ = run("page", "--out", str(out))
+    (out / "工作台.html").write_text('<main id="app"></main><script src="工作台数据.js"></script>', encoding="utf-8")
+    code_ok, _ = run("page", "--out", str(out))
+    if code_bad == 0 or code_ok != 0:
+        fails.append("主页外部资源检查没有生效")
+    (out / "工作台.html").unlink()
+    (out / "输出" / "坏文件.json").unlink()
     # 反馈环：意见要写进偏好，并出现在下一次素材包里；意见里的敏感信息也要遮挡
     run("feedback", "--good", "--out", str(out))
     run("feedback", "旧项目不列入，电话 13700001111 不要出现", "--out", str(out))
@@ -120,6 +141,24 @@ with tempfile.TemporaryDirectory() as t:
     code, _ = run("redact", "--self-test")
     if code != 0:
         fails.append("脱敏自检失败")
+    # v2.2 飞书通道：纯本地解析器 + Msg.who（不联网、不依赖 lark-cli）
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("wb", HERE / "workbench.py")
+    wb = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(wb)
+    fx = json.loads((EX / "feishu" / "消息_示例.json").read_text(encoding="utf-8"))
+    texts = [wb.feishu_msg_text(m) for m in fx["messages"]]
+    if "复盘会" not in texts[0]:
+        fails.append("飞书 text 消息解析失败：" + texts[0])
+    if "KOL 快讯" not in texts[1] or "initial_card" in texts[1] or "hr" in texts[1]:
+        fails.append("飞书卡片解析失败：" + texts[1][:80])
+    if "周报草稿" not in texts[2] or "三件事" not in texts[2]:
+        fails.append("飞书 post 解析失败：" + texts[2][:80])
+    if "代理已恢复" not in texts[3] or "card" not in texts[3]:
+        fails.append("飞书明文卡片解析失败：" + texts[3][:80])
+    m0 = wb.Msg("飞书", fx["chat"], "飞书/" + fx["chat"], wb.parse_time("2026-11-06 10:30"), "user", texts[0], None, who="王姐")
+    if m0.who != "王姐" or wb.Msg("x", "s", "p", wb.parse_time("2026-11-06 10:30"), "user", "t", None).who is not None:
+        fails.append("Msg.who 字段行为异常")
 
 # agent-dump 主引擎（装了才测）
 if shutil.which("agent-dump"):

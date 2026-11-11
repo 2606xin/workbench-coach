@@ -61,7 +61,9 @@ python3 scripts/workbench.py push 输出/日期.md --dry-run  # 交付：推送�
 ├── 收集箱/           ← 拿不到的数据，手动丢进来
 ├── 素材包/           ← 脱敏后的素材包（只有它会交给 AI）
 ├── 工作流/<名字>/    ← 第 5 步：SKILL.md（四要素）+ 输出模板.md + 触发器设置.md（选了网页简报时另有 网页模板.html）
-├── 输出/             ← 每次运行的结果
+├── 输出/             ← 每次运行的结果（选了工作台主页时另有同名 .json）
+├── 工作台.html       ← 工作台主页（选了这个形式时才有；AI 按你的内容设计）
+├── 工作台数据.js     ← 主页的数据，每次运行后由 page 命令更新
 ├── 偏好.md           ← 反馈环：从反馈里沉淀的规则，可以手动删改
 ├── 反馈.jsonl        ← 反馈环：每次反馈的原始记录（已脱敏）
 └── state.json        ← 游标：上次处理到哪一刻；每次运行的遮挡统计
@@ -79,9 +81,22 @@ python3 scripts/workbench.py push 输出/日期.md --dry-run  # 交付：推送�
 |---|---|---|
 | 选择页面改版 | 卡片分步、默认「全部 AI 会话」只显示一行汇总；选「只用我勾选的」才展开工具和项目（全选 / 半选 / 搜索）；底部常驻一句话总结；没勾同意按钮不可点；错误就地提示；提交后显示确认回执 | `scripts/workbench.py` 的 PICK_CSS / PICK_HTML |
 | 网页简报 | ③输出物多一个「形式」：Markdown（默认）或网页简报 | scope.json `output.format`；build 时多生成 `网页模板.html`（清见配色、单文件、无外链、可打印） |
+| 工作台主页 | ③输出物「形式」多一个「工作台主页」（推荐）：每天打开同一个本地网页 | 版式由 AI 按每个人的内容设计（`主页设计说明.md` 给出要求和数据结构）；每次运行写 `输出/日期.json`，`page` 命令汇总成 `工作台数据.js` 并检查主页没有外部资源 |
 | 按场景找现成技能 | 第 2 步 AI 用 `npx skills find <关键词>` 找技能写进方案卡；页面③里可勾选；第 5 步确认后才 `npx skills add <id> -g -y` | 方案.json `skills_suggested`；scope.json `skills`；白名单见 `技能白名单.txt` |
 
 技能白名单：默认只放行 `anthropics`、`vercel-labs` 两个来源；讲师审核后，在 `技能白名单.txt` 里一行加一个 `owner` 或 `owner/repo`。不在白名单里的技能在页面上显示为灰色、不可勾选，即使被硬塞进表单也会在写 scope.json 和 build 时被过滤掉。没有 Node 的电脑跳过这一步，不影响搭建。
+
+## 1.6 官方通道接入（11-11 新增：飞书）
+
+数据源不止本地 AI 会话——**飞书群消息已可直连**（走飞书官方 CLI [lark-cli](https://github.com/larksuite/cli)，只读：列群＋按日期拉消息；范围＝你的账号可见的群，平台安全模型决定不在的群读不到）：
+
+```bash
+npm install -g @larksuite/cli        # ① 装官方 CLI（需 Node.js）
+lark-cli auth login --domain im      # ② 扫码授权（只勾「读消息」类权限）
+python3 scripts/workbench.py connect feishu   # ③ 自检并写入 scope
+```
+
+之后每次 `collect` 自动拉取飞书增量（与 AI 会话并排进素材包，发言者按群友名字标注，同样过脱敏）；`detect` 会显示飞书授权状态。令牌由 lark-cli 存进系统钥匙串，本脚本不落任何凭证。未安装/未授权/过期都会自动降级为跳过并提示，不影响其他数据源。停用：scope.json 里 `feishu.enabled` 改 `false`。企业租户内的普通员工需管理员开应用权限，详见 `docs/v2设计_消息接入与文件记录.md` 第七、九节。
 
 ---
 
