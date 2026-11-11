@@ -159,6 +159,21 @@ with tempfile.TemporaryDirectory() as t:
     m0 = wb.Msg("飞书", fx["chat"], "飞书/" + fx["chat"], wb.parse_time("2026-11-06 10:30"), "user", texts[0], None, who="王姐")
     if m0.who != "王姐" or wb.Msg("x", "s", "p", wb.parse_time("2026-11-06 10:30"), "user", "t", None).who is not None:
         fails.append("Msg.who 字段行为异常")
+    # v2 WeFlow（微信本地，B 层）：纯解析器 + 优雅降级（无服务时 load 返回空并记提示）
+    wfx = json.loads((EX / "weflow" / "消息_示例.json").read_text(encoding="utf-8"))
+    wmsgs_fx = wfx["messages_response"]["messages"]
+    wt = [wb.weflow_msg_text(m) for m in wmsgs_fx]
+    if "明早九点" not in wt[0] or "收到，我带门店数据" not in wt[1]:
+        fails.append("WeFlow 文本解析失败：" + wt[0] + " / " + wt[1])
+    if not wt[2].startswith("回复「收到"):
+        fails.append("WeFlow 引用前缀解析失败：" + wt[2][:40])
+    if wt[3] != "[图片]":
+        fails.append("WeFlow 媒体占位解析失败：" + wt[3])
+    if wb.weflow_sender(wmsgs_fx[0]) != "我" or wb.weflow_sender(wmsgs_fx[1]) != "wangjie":
+        fails.append("WeFlow 发送者标注异常")
+    wload = wb.load_weflow(None, 14)  # 本机无 WeFlow → 必须返回空而不是崩溃
+    if wload != [] or not any("WeFlow" in n for n in wb.ENGINE["notes"]):
+        fails.append("WeFlow 未就绪时应优雅降级为空列表")
 
 # agent-dump 主引擎（装了才测）
 if shutil.which("agent-dump"):

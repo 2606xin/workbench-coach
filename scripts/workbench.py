@@ -7,7 +7,7 @@
 
 子命令：
   detect    看看这台电脑上有哪些 AI 工具的本地会话（只统计，不输出内容）
-  connect   接入官方通道（v2）：connect feishu —— 检测 lark-cli 授权、写入 scope，之后 collect 自动拉飞书群消息
+  connect   接入通道（v2）：connect feishu（飞书官方）/ connect weflow（微信本地，B 层）—— 检测、指引、写 scope
   discover  在常见目录里找「可能是会话记录」的文件，给新工具做适配用（只列文件名和大小）
   pick      打开本地页面：显示 AI 的落地分析，选择数据源（AI 会话 / 文件夹 / 收集箱）和触发器，并确认授权
   collect   按选择范围收集 → 脱敏 → 生成「素材包」；首次建基线，之后按游标增量
@@ -724,9 +724,117 @@ def connect_feishu(args):
     return 0
 
 
+# ------------------------------------------------ WeFlow（微信本地通道，B 层可选） ----
+# WeFlow 是用户自装的本地微信记录查看/导出工具（https://github.com/hicccc77/WeFlow，
+# 协议 CC BY-NC-SA 4.0＝非商业＋传染：本仓库**不集成其任何代码**，只在运行时调用它
+# 自愿开启的本地 HTTP API（127.0.0.1:5031，见其 docs/HTTP-API.md）。
+# 合规属性 B 层：微信本地库工具由用户自行安装启用，获取动作与责任在用户；课程不推荐不教学。
+# 令牌只从环境变量 WEFLOW_TOKEN 读（同 WECOM_WEBHOOK 先例），不写进任何文件。
+# 未装 / 未开 API / 未配令牌 → 记提示后跳过，不影响其他数据源。
+
+WEFLOW_BASE = "http://127.0.0.1:5031"
+
+
+def weflow_get(path: str, params: dict | None = None, timeout: int = 30):
+    import urllib.parse, urllib.request
+    q = dict(params or {})
+    tok = os.environ.get("WEFLOW_TOKEN", "")
+    if tok:
+        q["access_token"] = tok
+    url = WEFLOW_BASE + path + ("?" + urllib.parse.urlencode(q) if q else "")
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as r:
+            return json.loads(r.read().decode("utf-8", "replace"))
+    except Exception:
+        return None
+
+
+def weflow_ready() -> tuple[bool, str]:
+    h = weflow_get("/health", timeout=5)
+    if not h or h.get("status") != "ok":
+        return False, "WeFlow API 未开启（自装 WeFlow → 设置 → API 服务 → 启动，默认 127.0.0.1:5031）"
+    if not os.environ.get("WEFLOW_TOKEN"):
+        return False, "未设置环境变量 WEFLOW_TOKEN（WeFlow 设置页生成令牌后 export WEFLOW_TOKEN=…）"
+    s = weflow_get("/api/v1/sessions", {"limit": 1})
+    if not (s or {}).get("success"):
+        return False, "WEFLOW_TOKEN 无效或 API 不可用"
+    return True, ""
+
+
+def weflow_sessions() -> list[dict]:
+    s = weflow_get("/api/v1/sessions", {"limit": 500}) or {}
+    return [{"id": x.get("username"), "name": x.get("displayName") or x.get("username") or "(未命名)"}
+            for x in (s.get("sessions") or []) if x.get("username")]
+
+
+def weflow_msg_text(m: dict) -> str:
+    """WeFlow JSON 消息 → 显示文本。带引用的消息加前缀；媒体占位（[图片] 等）原样保留。"""
+    content = str(m.get("parsedContent") or m.get("content") or "").strip()
+    quote = m.get("quote")
+    if isinstance(quote, dict):
+        qc = str(quote.get("content") or "").strip()
+        if qc:
+            content = f"回复「{qc[:40]}」：{content}"
+    return content
+
+
+def weflow_sender(m: dict) -> str:
+    if m.get("isSend"):
+        return "我"
+    who = str(m.get("senderUsername") or "")
+    return who[5:] if who.startswith("wxid_") else (who or "对方")
+
+
+def load_weflow(since: dt.datetime | None, days: int = 14, only_chats: set[str] | None = None) -> list[Msg]:
+    """拉各会话 since 之后的消息（基线＝最近 days 天，每会话上限 200 条防爆炸）。失败返回 []。"""
+    ok, why = weflow_ready()
+    if not ok:
+        ENGINE["notes"].append("WeFlow 未接入：" + why)
+        return []
+    start_ts = int((since or dt.datetime.now(UTC) - dt.timedelta(days=days)).timestamp())
+    msgs: list[Msg] = []
+    for c in weflow_sessions():
+        if only_chats and c["id"] not in only_chats:
+            continue
+        d = weflow_get("/api/v1/messages", {"talker": c["id"], "limit": 200, "start": str(start_ts)}) or {}
+        for m in d.get("messages") or []:
+            ts = parse_time(m.get("createTime"))
+            if ts is None or (since is not None and ts <= since):
+                continue
+            text = weflow_msg_text(m)
+            if not text:
+                continue
+            msgs.append(Msg("微信", c["name"], f"微信/{c['name']}", ts, "user", text, None,
+                            who=weflow_sender(m)))
+    return msgs
+
+
+def connect_weflow(args):
+    out = Path(args.out).expanduser() if args.out else default_out()
+    out.mkdir(parents=True, exist_ok=True)
+    print("WeFlow 属于 B 层（微信本地库工具）：自装自用、责任自负；课程不推荐、本仓库不集成其代码（CC BY-NC-SA）。")
+    ok, why = weflow_ready()
+    if not ok:
+        print("✗ 还没就绪：" + why)
+        return 1
+    chats = weflow_sessions()
+    scope_p = out / "scope.json"
+    scope = json.loads(scope_p.read_text(encoding="utf-8")) if scope_p.exists() else {}
+    scope["weflow"] = {"enabled": True, "chats": [], "connected_at": dt.datetime.now(UTC).isoformat()}
+    scope_p.write_text(json.dumps(scope, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"✓ WeFlow 已接入：{len(chats)} 个会话，下次 collect 自动拉取增量（脱敏后进素材包）。")
+    if chats:
+        preview = "、".join(c["name"] for c in chats[:5])
+        print(f"  会话（前 5 个）：{preview}{'…' if len(chats) > 5 else ''}")
+    print("  停用：scope.json 里 weflow.enabled 改 false")
+    return 0
+
+
 def connect_cmd(args):
     if args.channel == "feishu":
         return connect_feishu(args)
+    if args.channel == "weflow":
+        return connect_weflow(args)
     return 2
 
 
@@ -1467,17 +1575,27 @@ def collect(args):
             fcur = now - dt.timedelta(days=args.days)  # 飞书侧首次基线同样只取最近 N 天
         only_chats = set(fs.get("chats") or []) or None
         fmsgs = [m for m in load_feishu(fcur, args.days, only_chats) if m.ts > fcur]
+    # WeFlow（微信本地通道，B 层）：同模式，独立游标
+    wmsgs = []
+    wf = scope.get("weflow") or {}
+    if wf.get("enabled"):
+        wcur = parse_time(st.get("weflow_cursor"))
+        if wcur is None:
+            wcur = now - dt.timedelta(days=args.days)
+        only_chats = set(wf.get("chats") or []) or None
+        wmsgs = [m for m in load_weflow(wcur, args.days, only_chats) if m.ts > wcur]
     ai_msgs = msgs          # AI 会话 / 文件夹 / 收集箱（游标与选择逻辑沿用原口径）
-    msgs = msgs + fmsgs     # 合并后进素材包
+    msgs = msgs + fmsgs + wmsgs  # 合并后进素材包
     if not msgs:
-        if (scope.get("feishu") or {}).get("enabled") and st.get("feishu_cursor"):
-            print("没有新的会话，今天不需要更新。")  # 飞书增量拉完为空：正常，不是数据源缺失
+        if ((scope.get("feishu") or {}).get("enabled") and st.get("feishu_cursor")) or \
+           ((scope.get("weflow") or {}).get("enabled") and st.get("weflow_cursor")):
+            print("没有新的会话，今天不需要更新。")  # 外部通道增量拉完为空：正常，不是数据源缺失
             return 0
         print("所选数据源里还没有内容。收集箱为空的话，先往里放一个文件再试。")
         return 1
     if st.get("baseline_done") and not args.rebuild:
         cur = parse_time(st.get("cursor"))
-        sel = [m for m in ai_msgs if cur is None or m.ts > cur] + fmsgs
+        sel = [m for m in ai_msgs if cur is None or m.ts > cur] + fmsgs + wmsgs
         title, note = "会话素材包 · 增量", f"自上次（{cur.astimezone().strftime('%Y-%m-%d %H:%M') if cur else '—'}）以来的新会话"
     else:
         sessions = {(m.tool, m.session) for m in msgs}
@@ -1498,6 +1616,8 @@ def collect(args):
         st["cursor"] = max(m.ts for m in ai_msgs).isoformat()  # 只按 AI 会话口径推进
     if fmsgs:
         st["feishu_cursor"] = max(m.ts for m in fmsgs).isoformat()
+    if wmsgs:
+        st["weflow_cursor"] = max(m.ts for m in wmsgs).isoformat()
     st["baseline_done"] = True
     st["runs"].append({"at": now.isoformat(), "type": "增量" if "增量" in title else "基线",
                        "messages": len(sel), "sessions": len({(m.tool, m.session) for m in sel}),
@@ -1954,10 +2074,17 @@ def detect(args):
         a = feishu_auth()
         feishu_note = (f"已授权 {a['user']} · 可见 {len(feishu_chats())} 个群（connect feishu 接入）" if a["ok"]
                        else "lark-cli 已装、未授权（connect feishu 看两步指引）")
+    weflow_note = None
+    h = weflow_get("/health", timeout=5)
+    if h and h.get("status") == "ok":
+        weflow_note = ("API 已开启 · 令牌有效（connect weflow 接入）" if os.environ.get("WEFLOW_TOKEN")
+                       else "API 已开启 · 未设 WEFLOW_TOKEN 环境变量")
     if args.json:
         d = {k: {**v, "projects": len(v["projects"])} for k, v in summ.items()}
         if feishu_note:
             d["飞书(官方通道)"] = feishu_note
+        if weflow_note:
+            d["WeFlow(微信本地, B层)"] = weflow_note
         print(json.dumps(d, ensure_ascii=False, indent=2))
         return 0
     if not summ:
@@ -1971,6 +2098,8 @@ def detect(args):
         print(f"  {tool:<12} {d['sessions']:>4} 个会话  {d['messages']:>6} 条消息  {d['first']} ～ {d['last']}  {len(d['projects'])} 个项目")
     if feishu_note:
         print(f"  飞书(官方)   {feishu_note}")
+    if weflow_note:
+        print(f"  WeFlow(B层)  {weflow_note}")
     return 0
 
 
@@ -2089,8 +2218,8 @@ def main(argv=None):
                        help="收集引擎：auto=装了 agent-dump 就用它（推荐），builtin=只用内置解析")
 
     p = sub.add_parser("detect"); common(p); p.add_argument("--json", action="store_true"); p.set_defaults(fn=detect)
-    p = sub.add_parser("connect"); common(p); p.add_argument("channel", choices=["feishu"],
-        help="接入官方通道：feishu=飞书（需 lark-cli，见 README「能力扩展」）"); p.set_defaults(fn=connect_cmd)
+    p = sub.add_parser("connect"); common(p); p.add_argument("channel", choices=["feishu", "weflow"],
+        help="接入通道：feishu=飞书（官方）；weflow=微信本地（B 层，用户自装自担）"); p.set_defaults(fn=connect_cmd)
     p = sub.add_parser("discover"); common(p); p.set_defaults(fn=discover)
     p = sub.add_parser("pick"); common(p)
     p.add_argument("--port", type=int, default=0); p.add_argument("--no-browser", action="store_true")

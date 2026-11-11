@@ -98,6 +98,21 @@ python3 scripts/workbench.py connect feishu   # ③ 自检并写入 scope
 
 之后每次 `collect` 自动拉取飞书增量（与 AI 会话并排进素材包，发言者按群友名字标注，同样过脱敏）；`detect` 会显示飞书授权状态。令牌由 lark-cli 存进系统钥匙串，本脚本不落任何凭证。未安装/未授权/过期都会自动降级为跳过并提示，不影响其他数据源。停用：scope.json 里 `feishu.enabled` 改 `false`。企业租户内的普通员工需管理员开应用权限，详见 `docs/v2设计_消息接入与文件记录.md` 第七、九节。
 
+## 1.7 微信本地记录（B 层可选，经 WeFlow）
+
+微信没有官方导出接口；**WeFlow**（[github.com/hicccc77/WeFlow](https://github.com/hicccc77/WeFlow)，16k star，完全本地运行）是用户圈里活跃的本地记录查看/导出工具，自带**本地 HTTP API**（127.0.0.1:5031）专门用于外部系统集成。本仓库**不集成其任何代码**（其协议为 CC BY-NC-SA 4.0，非商业＋传染；我们只在运行时调用它自愿开启的本地 API）。
+
+```bash
+# ① 自行安装 WeFlow（weflow.top 下载，macOS/Windows/Linux）—— 自装自用、责任自负
+# ② WeFlow 设置页：开启「API 服务」，生成访问令牌，然后：
+export WEFLOW_TOKEN=<你的令牌>          # 令牌只放环境变量，不写进任何文件
+python3 scripts/workbench.py connect weflow   # ③ 自检并写入 scope
+```
+
+之后每次 `collect` 自动拉微信各会话增量进素材包（项目按「微信/会话名」分组，引用消息带「回复「…」」前缀，媒体消息保留 [图片] 等占位，照常过脱敏）。`detect` 显示 WeFlow API 状态。停用：scope.json 里 `weflow.enabled` 改 `false`。
+
+> **合规口径（与安全课一致）**：微信本地库工具属 B 层——获取动作由你完成、责任在你；课程不推荐不教学；2026 年腾讯已对同类工具批量 DMCA，风险自评。
+
 ---
 
 ## 二、安全设计

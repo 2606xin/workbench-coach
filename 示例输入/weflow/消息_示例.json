@@ -1,0 +1,29 @@
+{
+  "chat": "项目群（虚构）",
+  "sessions_response": {
+    "success": true,
+    "count": 2,
+    "sessions": [
+      {"username": "12345@chatroom", "displayName": "项目群", "type": 2, "lastTimestamp": 1762300000, "unreadCount": 0},
+      {"username": "wxid_friend99", "displayName": "王姐", "type": 1, "lastTimestamp": 1762300100, "unreadCount": 2}
+    ]
+  },
+  "messages_response": {
+    "success": true,
+    "talker": "12345@chatroom",
+    "count": 4,
+    "hasMore": false,
+    "messages": [
+      {"localId": 11, "serverId": "7001", "localType": 1, "createTime": 1762200000,
+       "isSend": 1, "senderUsername": "wxid_me", "content": "明早九点对齐排期", "rawContent": "明早九点对齐排期", "parsedContent": "明早九点对齐排期"},
+      {"localId": 12, "serverId": "7002", "localType": 1, "createTime": 1762200600,
+       "isSend": 0, "senderUsername": "wxid_wangjie", "content": "收到，我带门店数据", "rawContent": "收到，我带门店数据", "parsedContent": "收到，我带门店数据"},
+      {"localId": 13, "serverId": "7003", "localType": 49, "createTime": 1762201200,
+       "isSend": 0, "senderUsername": "wxid_wangjie", "content": "好，按这个来", "rawContent": "<msg>…</msg>", "parsedContent": "好，按这个来",
+       "replyToMessageId": "7002",
+       "quote": {"platformMessageId": "7002", "sender": "wxid_me", "accountName": "我", "content": "收到，我带门店数据", "type": 1}},
+      {"localId": 14, "serverId": "7004", "localType": 3, "createTime": 1762201800,
+       "isSend": 0, "senderUsername": "wxid_wangjie", "content": "[图片]", "mediaType": "image", "mediaFileName": "a.jpg"}
+    ]
+  }
+}
