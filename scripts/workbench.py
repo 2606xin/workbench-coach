@@ -736,7 +736,7 @@ WEFLOW_BASE = "http://127.0.0.1:5031"
 
 
 def weflow_get(path: str, params: dict | None = None, timeout: int = 30):
-    import urllib.parse, urllib.request
+    import urllib.error, urllib.parse, urllib.request
     q = dict(params or {})
     tok = os.environ.get("WEFLOW_TOKEN", "")
     if tok:
@@ -745,6 +745,11 @@ def weflow_get(path: str, params: dict | None = None, timeout: int = 30):
     try:
         with urllib.request.urlopen(url, timeout=timeout) as r:
             return json.loads(r.read().decode("utf-8", "replace"))
+    except urllib.error.HTTPError as e:  # 业务错误也走 JSON 体（如 500: {"error": ...}），交给上层判断
+        try:
+            return json.loads(e.read().decode("utf-8", "replace"))
+        except Exception:
+            return None
     except Exception:
         return None
 
@@ -756,8 +761,10 @@ def weflow_ready() -> tuple[bool, str]:
     if not os.environ.get("WEFLOW_TOKEN"):
         return False, "未设置环境变量 WEFLOW_TOKEN（WeFlow 设置页生成令牌后 export WEFLOW_TOKEN=…）"
     s = weflow_get("/api/v1/sessions", {"limit": 1})
-    if not (s or {}).get("success"):
+    if not isinstance(s, dict):
         return False, "WEFLOW_TOKEN 无效或 API 不可用"
+    if s.get("error"):  # 鉴权已通过，只是账号/组件未配置：API 本身就绪
+        return True, ""
     return True, ""
 
 
