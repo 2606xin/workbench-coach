@@ -956,154 +956,213 @@ def skill_allowed(skill_id: str) -> bool:
 
 
 PICK_CSS = """
-:root{--bg:#eef3f3;--paper:#ffffff;--ink:#14262b;--ink2:#4a5d62;--line:#d3dfe0;--teal:#0f6b6b;--teal-soft:#e2f0ef;
---amber:#fff4d6;--amber-line:#e3c26a;--err:#b3261e;--err-soft:#fdecea}
+:root{--ink:#14262b;--bg:#eef3f3;--card:#fbfcfc;--line:#d5dedc;--line2:#b8c6c4;--teal:#0f6b6b;--teal-deep:#0b5555;--teal-bg:#e6f2f1;--mute:#4a5a5e;--dim:#6b7a7d;--pill:#dcefed;--amber:#fff4d6;--amber-ink:#5c4a1e;--rose:#b3261e}
 *{box-sizing:border-box}
-html{font-size:17px}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;line-height:1.6;accent-color:var(--teal)}
-.wrap{max-width:780px;margin:0 auto;padding:36px 22px 150px}
-header h1{font-size:30px;line-height:1.25;margin:0 0 8px;font-weight:700;letter-spacing:.02em}
-header p{margin:0;color:var(--ink2);font-size:16px}
-.plan{margin:26px 0 8px;background:var(--teal-soft);border-left:6px solid var(--teal);border-radius:4px 14px 14px 4px;padding:18px 22px}
-.plan .k{font-size:15px;color:var(--teal);font-weight:600;margin-bottom:2px}
-.plan h2{font-size:22px;margin:0 0 6px}
-.plan p{margin:0 0 10px}
-.plan dl{display:grid;grid-template-columns:5.5em 1fr;gap:4px 12px;margin:0 0 10px;font-size:16px}
-.plan dt{color:var(--ink2)}.plan dd{margin:0}
-.plan ul{list-style:none;padding:0;margin:0;font-size:16px}.plan li{margin:3px 0}
-.plan .fb{font-size:15px;color:var(--ink2);margin-top:8px}
-fieldset.step{border:0;margin:34px 0 0;padding:0 0 0 64px;position:relative;min-width:0}
-fieldset.step>legend{float:left;width:100%;padding:0;font-size:24px;line-height:44px;font-weight:700;margin:0 0 12px}
-fieldset.step>legend+*{clear:both}
-.num{position:absolute;left:0;top:0;width:44px;height:44px;border-radius:50%;background:var(--ink);color:#fff;
-display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700}
-.box{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin:0 0 12px}
-.box.v2{background:transparent;border-style:dashed;color:var(--ink2)}
-.row{display:flex;align-items:flex-start;gap:12px;margin:8px 0;cursor:pointer}
-.row>input{margin-top:5px}
-input[type=checkbox],input[type=radio]{width:20px;height:20px;flex:none}
-.big{font-size:18px;font-weight:600}
-.hint{display:block;color:var(--ink2);font-size:15px;margin-top:2px;font-weight:400}
-.pill{display:inline-block;font-size:14px;font-weight:600;color:var(--teal);background:var(--teal-soft);border-radius:999px;padding:0 10px;margin-left:8px;vertical-align:2px}
-.pill.gray{color:var(--ink2);background:#e6ebec}
-.sub{margin:10px 0 0 32px;padding:12px 16px;border-radius:10px;background:#f6f9f9}
-.sub h3{font-size:16px;margin:0 0 6px}
-.summary{margin:8px 0 0 32px;color:var(--ink2);font-size:15px}
-.tools{margin:6px 0 0 32px}
-.tool{border:1px solid var(--line);border-radius:10px;margin:8px 0;background:#fbfdfd}
-.tool .head{display:flex;align-items:center;gap:12px;padding:10px 14px;flex-wrap:wrap}
-.tool .head .meta{color:var(--ink2);font-size:15px}
-.tool details{border-top:1px solid var(--line)}
-.tool summary{cursor:pointer;padding:8px 14px;color:var(--teal);font-size:15px;font-weight:600}
-.tool summary .cnt{color:var(--ink2);font-weight:400;margin-left:6px}
-.filter{width:calc(100% - 28px);margin:4px 14px 8px;font:inherit;font-size:15px;padding:7px 10px;border:1px solid var(--line);border-radius:8px}
-.plist{max-height:300px;overflow:auto;padding:0 14px 10px}
-.proj{display:grid;grid-template-columns:20px 1fr auto;gap:2px 12px;align-items:start;padding:6px 0;border-bottom:1px dashed #e3eaeb;cursor:pointer}
-.proj:last-child{border-bottom:0}
-.proj .pn{font-size:16px}.proj .pc{color:var(--ink2);font-size:14px;white-space:nowrap}
-.proj .pp{grid-column:2/4;color:var(--ink2);font-size:13px;overflow-wrap:anywhere}
-.field{display:block;margin:12px 0}
-.field>span{display:block;font-weight:600;margin-bottom:4px}
-.field small{font-weight:400;color:var(--ink2);font-size:15px;margin-left:6px}
-input[type=text],select,textarea{font:inherit;font-size:16px;color:var(--ink);background:#fff;border:1px solid #b9c9cb;border-radius:8px;padding:7px 10px}
-input[type=text],textarea{width:100%}
-input[type=text].short{width:16em;max-width:100%}
-select{padding:6px 8px}
-.inline{display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap}
-:focus-visible{outline:3px solid #f0b429;outline-offset:2px}
-.consent{background:var(--amber);border-color:var(--amber-line)}
-.consent ul{margin:0 0 10px;padding-left:1.2em}.consent li{margin:4px 0}
-.err{display:none;margin:10px 0 0;padding:10px 14px;border-radius:8px;background:var(--err-soft);color:var(--err);font-weight:600}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'PingFang SC','Microsoft YaHei','Noto Sans SC',system-ui,sans-serif;font-size:17px;line-height:1.65}
+a{color:var(--teal)}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible{outline:3px solid var(--teal);outline-offset:2px}
+.wrap{max-width:780px;margin:0 auto;padding:40px 20px 170px;display:flex;flex-direction:column;gap:22px}
+header{display:flex;flex-direction:column;gap:6px}
+.lock{margin:0;font-size:14px;color:var(--mute);display:flex;align-items:center;gap:6px}
+h1{margin:0;font-size:30px;line-height:1.3}
+.sub{margin:0;color:var(--mute)}
+/* 方案卡（_plan_card 注入 section.plan，重绘为设计稿浅青卡） */
+.plan{background:#e2f0ee;border:1px solid #a9d3cd;border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;gap:6px}
+.plan .k{margin:0;font-size:14px;color:var(--teal-deep);font-weight:600}
+.plan h2{margin:0;font-size:20px;font-weight:700}
+.plan p{margin:0;color:#2c3f44}
+.plan dl{display:flex;flex-wrap:wrap;gap:4px 14px;margin:4px 0 0;font-size:15px;color:#2c3f44}
+.plan dt{color:var(--teal-deep);font-weight:600}.plan dd{margin:0}
+.plan ul{margin:6px 0 0;padding:0;list-style:none;font-size:15px;color:#2c3f44}
+.plan li{display:inline;margin-right:14px}
+.plan .fb{font-size:14px;color:var(--dim);margin-top:4px}
+/* 四步卡片 */
+fieldset.step{border:1px solid var(--line);background:var(--card);border-radius:16px;padding:22px 22px 24px;margin:0;display:flex;flex-direction:column;gap:14px}
+fieldset.step>.num{float:left;width:34px;height:34px;border-radius:50%;background:var(--teal);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:17px;font-weight:700}
+fieldset.step>legend{float:left;width:100%;padding:0;display:flex;align-items:center;gap:12px;font-size:21px;font-weight:700}
+fieldset.step>.lede{margin:-6px 0 0 46px;color:var(--mute);clear:both}
+/* 数据源大卡 */
+.srccard{display:flex;gap:14px;align-items:flex-start;padding:16px 18px;border-radius:14px;border:2px solid var(--line);background:#fff}
+.srccard:has(input:checked){border-color:var(--teal);background:var(--teal-bg)}
+.srccard input[type=checkbox]{width:22px;height:22px;margin:3px 0 0;accent-color:var(--teal);flex:none}
+.srccard .bd{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}
+.srccard .tt{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.srccard b{font-size:18px}
+.pill{background:var(--pill);color:var(--teal-deep);font-size:13px;padding:2px 10px;border-radius:99px}
+.pill.gray{background:#e3e9e8;color:var(--mute)}
+.hint{color:var(--mute);font-size:15px;display:block}
+/* AI 卡内嵌细节面板（mode/range/assistant/工具列表） */
+.subpanel{border:1px solid var(--line);background:#fff;border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.subpanel.off{opacity:.45}
+.row{display:flex;gap:10px;align-items:baseline}
+.row input{accent-color:var(--teal)}
+.subpanel h4{margin:6px 0 0;font-size:15px;color:var(--mute)}
+.summary{color:var(--dim);font-size:14px}
+textarea,input[type=text],select{min-height:44px;padding:6px 12px;border-radius:10px;border:1px solid var(--line2);background:#fff;font:inherit;color:var(--ink)}
+textarea{width:100%;resize:vertical;white-space:pre-line}
+input.short{max-width:220px}
+/* _tools_block 注入结构 */
+.tool{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--card)}
+.tool .head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.tool .big{font-weight:700}
+.tool .meta{color:var(--dim);font-size:13px}
+.tool details{margin-top:6px}
+.tool summary{cursor:pointer;color:var(--teal);font-size:14px}
+.tool .cnt{margin-left:8px;color:var(--dim)}
+.filter{min-height:36px;margin:6px 0}
+.plist{display:flex;flex-direction:column;gap:2px;max-height:300px;overflow:auto}
+.proj{display:flex;gap:8px;align-items:baseline;font-size:15px;min-height:30px}
+.proj .pn{font-weight:600}.proj .pc{color:var(--dim);font-size:13px}.proj .pp{color:var(--dim);font-size:12px;word-break:break-all}
+/* v2 灰卡 */
+.v2grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.v2card{display:flex;flex-direction:column;gap:4px;padding:14px 16px;border:1px solid #dde4e3;background:#f2f5f4;border-radius:14px;color:var(--mute)}
+.v2card .tt{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.v2card .hint{font-size:14px;color:#5d6b6e}
+.err{display:none;color:var(--rose);font-size:15px;margin:0}
 .err.on{display:block}
-.bar{position:fixed;left:0;right:0;bottom:0;background:rgba(255,255,255,.97);border-top:2px solid var(--ink);box-shadow:0 -6px 20px rgba(20,38,43,.08)}
-.bar .in{max-width:780px;margin:0 auto;padding:12px 22px;display:flex;gap:18px;align-items:center}
-.bar .say{flex:1;font-size:16px;line-height:1.5}
-.bar .say b{color:var(--teal)}
-.bar .why{display:block;font-size:14px;color:var(--ink2)}
-.btn{font:inherit;font-size:18px;font-weight:700;background:var(--teal);color:#fff;border:0;border-radius:10px;padding:12px 26px;cursor:pointer;white-space:nowrap}
-.btn:disabled{background:#9fb3b5;cursor:not-allowed}
-@media (max-width:640px){html{font-size:16px}fieldset.step{padding-left:0}.num{position:static;display:inline-flex;margin-bottom:8px}
-.bar .in{flex-direction:column;align-items:stretch}.btn{width:100%}.sub,.tools,.summary{margin-left:0}}
-@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+/* 触发器三选卡 */
+.triggrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.trigcard{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:64px;padding:10px 14px;border-radius:12px;border:2px solid var(--line);background:#fff;font:inherit;color:var(--ink);cursor:pointer;text-align:left}
+.trigcard:has(input:checked){border-color:var(--teal);background:var(--teal-bg)}
+.trigcard input{position:absolute;opacity:0;width:0;height:0}
+.trigcard b{font-size:17px}
+.trigcard span{font-size:14px;color:var(--mute)}
+.trigrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:16px}
+/* 输出物 */
+.outgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.field{display:flex;flex-direction:column;gap:6px;font-size:15px;color:var(--mute)}
+.field>span>small{display:block;color:var(--dim);font-size:13px}
+.fmtgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.fmtcard{display:flex;flex-direction:column;gap:8px;min-height:150px;padding:12px 14px;border-radius:12px;border:2px solid var(--line);background:#fff;font:inherit;cursor:pointer;text-align:left}
+.fmtcard:has(input:checked){border-color:var(--teal);background:var(--teal-bg)}
+.fmtcard input{position:absolute;opacity:0;width:0;height:0}
+.thumb{display:block;width:100%;height:54px;border-radius:8px;border:1px solid #c8d6d4}
+.thumb.grid{background:linear-gradient(90deg,#cfe6e3 0 30%,transparent 30% 34%,var(--teal-bg) 34% 100%)}
+.thumb.lines{background:repeating-linear-gradient(180deg,#d5dedc 0 4px,transparent 4px 12px) 10px 10px/70% 36px no-repeat,#fff}
+.thumb.card{background:linear-gradient(180deg,var(--teal) 0 14px,#fff 14px 100%)}
+.rec{background:var(--teal);color:#fff;font-size:12px;padding:1px 8px;border-radius:99px}
+/* 授权 */
+.readlist{margin:0;padding:14px 18px 14px 36px;background:#fff;border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;gap:4px}
+.readlist li{font-size:16px}
+.consent{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;background:var(--amber);border-radius:12px;cursor:pointer}
+.consent input{width:22px;height:22px;margin:2px 0 0;accent-color:var(--teal);flex:none}
+.consent small{font-size:14px;color:var(--amber-ink)}
+/* 底部 sticky 条 */
+.bar{position:sticky;bottom:0;background:var(--ink);color:#eef3f3;padding:14px 20px;margin:0 -20px}
+.bar .in{max-width:780px;margin:0 auto;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.stepsdot{margin:0;padding:0;list-style:none;display:flex;gap:6px}
+.stepsdot a{display:inline-flex;width:30px;height:30px;border-radius:50%;align-items:center;justify-content:center;font-size:14px;text-decoration:none;color:#eef3f3;border:1px solid #7c8d90}
+.stepsdot a.done{background:#7cc9bf;color:var(--ink);border:none}
+.say{flex:1 1 280px;font-size:15px;line-height:1.5}
+.say .why{display:block;color:#9aabae;font-size:13px}
+.btn{min-height:48px;padding:0 22px;border-radius:12px;border:none;font:inherit;font-weight:700;background:#7cc9bf;color:var(--ink);cursor:pointer}
+.btn:disabled{background:#3a4b50;color:#9aabae;cursor:not-allowed}
+@media(max-width:700px){.v2grid,.outgrid,.triggrid,.fmtgrid{grid-template-columns:1fr}}
 """
 
 PICK_HTML = """<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="icon" href="data:,"><title>清见工作台 · 选择数据源和触发器</title><style>__CSS__</style>
+<link rel="icon" href="data:,"><title>清见工作台 · 选择范围</title><style>__CSS__</style>
 <div class="wrap">
-<header><h1>搭建你的个人工作台</h1>
-<p>这个页面只在你自己的电脑上运行，不联网。没勾选的内容，一条都不会被读取。</p></header>
+<header>
+<p class="lock"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0f6b6b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>只在你的电脑上运行 · 关掉这个页面就停止</p>
+<h1>选好范围，就开始搭你的工作台</h1>
+<p class="sub">已经按刚才的方案帮你勾好了。看一眼、改一改，最后在第 4 步确认。</p>
+</header>
 __PLAN__
 <form id="f" method="post" action="/submit?t=__TOKEN__" novalidate>
 
 <fieldset class="step" id="s1"><div class="num" aria-hidden="true">1</div><legend>选择数据源</legend>
-<div class="box">
-<label class="row"><input type="checkbox" name="src" value="ai_sessions" __AI_CHECKED__>
-<span><span class="big">本地 AI 会话</span><span class="pill">基础盘，一定有数据</span>
-<span class="hint">把你在各个 AI 工具里的会话放进同一个上下文。</span></span></label>
-<div class="sub" id="aiopts">
-<label class="row"><input type="radio" name="mode" value="all" checked><span>全部工具、全部项目</span></label>
-<div class="summary" id="allsum">__SUMMARY__</div>
+<p class="lede">勾选的才会读，不勾不读。</p>
+
+<label class="srccard"><input type="checkbox" name="src" value="ai_sessions" __AI_CHECKED__>
+<span class="bd">
+<span class="tt"><b>本地 AI 会话</b><span class="pill">已就绪</span></span>
+<span class="hint" id="allsum2">__SUMMARY__</span>
+<span class="subpanel off" id="aiopts">
+<label class="row"><input type="radio" name="mode" value="all" checked><span>全部工具、全部项目<span class="summary" id="allsum"></span></span></label>
 <label class="row"><input type="radio" name="mode" value="pick"><span>只用我勾选的工具或项目</span></label>
 <div class="tools" id="tools" hidden>__SOURCES__</div>
-<h3 style="margin-top:14px">时间范围</h3>
+<h4>时间范围与内容</h4>
 <label class="row"><input type="radio" name="range" value="auto" checked><span>自动<span class="hint">数据多就只取最近 14 天，少就全部</span></span></label>
 <label class="row"><input type="radio" name="range" value="14"><span>最近 14 天</span></label>
 <label class="row"><input type="radio" name="range" value="all"><span>全部历史</span></label>
 <label class="row"><input type="checkbox" name="assistant" value="1"><span>同时包含 AI 的回复<span class="hint">默认只取你自己说的话，更省额度、更安全</span></span></label>
-</div></div>
-<div class="box">
-<label class="row"><input type="checkbox" name="src" value="folder" __FOLDER_CHECKED__>
-<span><span class="big">本地文件夹</span><span class="hint">每行一个文件夹路径，读取其中的 .md、.txt、.csv、.json 文件（单个文件 300KB 以内）。</span></span></label>
-<textarea name="folders" rows="2" placeholder="例如：D:\\工作\\周报素材" aria-label="文件夹路径，每行一个">__FOLDERS__</textarea></div>
-<div class="box">
-<label class="row"><input type="checkbox" name="src" value="inbox" __INBOX_CHECKED__>
-<span><span class="big">收集箱</span><span class="hint">在工作台里建一个「收集箱」文件夹。拿不到的数据（比如微信里的要点），复制成文件丢进去，后面全自动。</span></span></label></div>
-<div class="box v2">
-<label class="row"><input type="checkbox" disabled>
-<span><span class="big">企业微信、飞书、钉钉</span><span class="pill gray">v2 · 暂不可选</span>
-<span class="hint">有官方接口，但通常需要企业管理员开通。现在先用收集箱，开通后再接。个人微信没有合规接口，不接入。</span></span></label></div>
-<div class="err" id="e1" role="alert"></div>
+</span></span></label>
+
+<label class="srccard"><input type="checkbox" name="src" value="folder" __FOLDER_CHECKED__>
+<span class="bd">
+<span class="tt"><b>本地文件夹</b><span class="pill">已就绪</span></span>
+<span class="hint">每行一个文件夹路径，读取其中的 .md、.txt、.csv、.json 文件（单个文件 300KB 以内）。</span>
+<textarea name="folders" rows="2" placeholder="例如：D:\\工作\\周报素材" aria-label="文件夹路径，每行一个">__FOLDERS__</textarea>
+</span></label>
+
+<label class="srccard"><input type="checkbox" name="src" value="inbox" __INBOX_CHECKED__>
+<span class="bd">
+<span class="tt"><b>收集箱</b><span class="pill">已就绪</span></span>
+<span class="hint">拿不到的内容，复制成文件丢进「清见工作台/收集箱」，下次运行自动读取。</span>
+</span></label>
+
+<div class="v2grid">
+<div class="v2card"><span class="tt"><b>钉钉</b><span class="pill gray">即将开放</span></span><span class="hint">现在先用收集箱</span></div>
+<div class="v2card"><span class="tt"><b>企业微信</b><span class="pill gray">即将开放</span></span><span class="hint">需要企业管理员开通，现在先用收集箱</span></div>
+</div>
+<p class="err" id="e1" role="alert"></p>
 </fieldset>
 
 <fieldset class="step" id="s2"><div class="num" aria-hidden="true">2</div><legend>选择触发器</legend>
-<div class="box">
-<label class="row"><input type="radio" name="trigger" value="daily" __T_DAILY__>
-<span class="inline">每天定时 <select name="daily_time" aria-label="每天几点">__DAILY_OPTS__</select></span></label>
-<label class="row"><input type="radio" name="trigger" value="weekly" __T_WEEKLY__>
-<span class="inline">每周定时 <select name="weekday" aria-label="每周哪天">__WEEKDAYS__</select> <select name="weekly_time" aria-label="几点">__WEEKLY_OPTS__</select></span></label>
-<label class="row"><input type="radio" name="trigger" value="manual" __T_MANUAL__>
-<span class="inline">手动：对 AI 说一句 <input type="text" class="short" name="phrase" value="__PHRASE__" aria-label="口令"></span></label>
-<p class="hint">定时任务由你正在用的 AI 工具执行，需要电脑开着；电脑经常关机的，选「手动」更稳。</p></div>
+<p class="lede">什么时候自动跑一次。经常关机的话，选口令更稳。</p>
+<div class="triggrid" role="radiogroup" aria-label="触发方式">
+<label class="trigcard"><input type="radio" name="trigger" value="daily" __T_DAILY__><b>每天</b><span>到点自动跑</span></label>
+<label class="trigcard"><input type="radio" name="trigger" value="weekly" __T_WEEKLY__><b>每周</b><span>适合周报</span></label>
+<label class="trigcard"><input type="radio" name="trigger" value="manual" __T_MANUAL__><b>说一句口令</b><span>想用时再跑</span></label>
+</div>
+<div class="trigrow" id="trigtime">
+<span id="trigprefix">每天</span>
+<select name="daily_time" id="dtime" aria-label="每天几点">__DAILY_OPTS__</select>
+<select name="weekday" id="wday" aria-label="每周哪天">__WEEKDAYS__</select>
+<select name="weekly_time" id="wtime" aria-label="几点">__WEEKLY_OPTS__</select>
+</div>
+<div class="trigrow" id="trigmanual" hidden>口令
+<input type="text" class="short" name="phrase" value="__PHRASE__" aria-label="口令"></div>
+<p class="hint">定时任务由你正在用的 AI 工具执行，需要电脑开着；电脑经常关机的，选「说一句口令」更稳。</p>
 </fieldset>
 
 <fieldset class="step" id="s3"><div class="num" aria-hidden="true">3</div><legend>确认输出物</legend>
-<div class="box">
+<div class="outgrid">
 <label class="field"><span>它是什么</span><input type="text" name="out_type" value="__OUT_TYPE__"></label>
-<label class="field"><span>包含哪几块<small>每行一块，会变成固定模板的小标题</small></span>
-<textarea name="out_items" rows="__OUT_ROWS__">__OUT_ITEMS__</textarea></label>
 <label class="field"><span>给谁看</span><input type="text" name="out_aud" value="__OUT_AUD__"></label>
+</div>
+<label class="field"><span>包含哪几块<small>每行一块，会变成固定的小标题</small></span>
+<textarea name="out_items" rows="__OUT_ROWS__">__OUT_ITEMS__</textarea></label>
 <div class="field"><span>什么样子</span>
-<label class="row"><input type="radio" name="out_format" value="page" __FMT_PAGE__><span>工作台主页<span class="hint">推荐：每天打开同一个网页；AI 按你的内容设计版式，每次运行后自动更新</span></span></label>
-<label class="row"><input type="radio" name="out_format" value="md" __FMT_MD__><span>文字版（Markdown）<span class="hint">最稳，任何工具都能打开</span></span></label>
-<label class="row"><input type="radio" name="out_format" value="html" __FMT_HTML__><span>网页简报<span class="hint">套用清见的网页模板，排版好看，可以直接用浏览器打开或转发</span></span></label></div>
+<div class="fmtgrid" role="radiogroup" aria-label="输出形式">
+<label class="fmtcard"><input type="radio" name="out_format" value="page" __FMT_PAGE__><span class="thumb grid" aria-hidden="true"></span><span class="tt"><b>工作台主页</b><span class="rec">推荐</span></span><span class="hint">每天打开同一个网页，AI 按你的内容设计，每次运行后自动更新</span></label>
+<label class="fmtcard"><input type="radio" name="out_format" value="md" __FMT_MD__><span class="thumb lines" aria-hidden="true"></span><b>文字版</b><span class="hint">最稳，任何工具都能打开</span></label>
+<label class="fmtcard"><input type="radio" name="out_format" value="html" __FMT_HTML__><span class="thumb card" aria-hidden="true"></span><b>网页简报</b><span class="hint">单份好看的网页，方便转发</span></label>
+</div></div>
 <div class="field"><span>怎么交付</span>
 <label class="row"><input type="checkbox" checked disabled><span>保存到工作台的「输出」文件夹<span class="hint">每次一份，按日期命名；这一项固定开启</span></span></label>
-<label class="row"><input type="checkbox" name="deliver" value="wecom"><span>同时推送到企业微信群<span class="hint">需要群机器人地址，放在环境变量 WECOM_WEBHOOK 里，不写进任何文件</span></span></label></div>
+<label class="row"><input type="checkbox" name="deliver" value="wecom"><span>同时推送到企业微信群<span class="hint">群机器人地址只放在环境变量 WECOM_WEBHOOK 里，不写进任何文件</span></span></label></div>
 __SKILLS__
-<p class="hint">每份结果最后都会附一行「反馈」：你回一句「好」或「以后不用写 xx」，下次就会照着改。</p></div>
+<p class="hint">每份结果最后都会附一行「反馈」：你回一句「好」或「以后不用写 xx」，下次就会照着改。</p>
 </fieldset>
 
 <fieldset class="step" id="s4"><div class="num" aria-hidden="true">4</div><legend>确认授权</legend>
-<div class="box consent">
-<ul><li>收集时会自动遮挡：密钥、令牌、密码、身份证号、银行卡号、手机号、邮箱、电脑用户名。</li>
-<li>整理好的「素材包」会交给 __MODEL__ 来生成结果。<b>只有这一步会离开你的电脑。</b></li>
-<li>素材包生成后，你可以先打开看一遍，再决定要不要继续。</li></ul>
-<label class="row"><input type="checkbox" name="consent" value="1" id="ok"><span class="big">我已了解，同意按以上范围搭建</span></label></div>
+<p class="lede">确认后，工作台只会读下面这些：</p>
+<ul class="readlist" id="readlist"></ul>
+<p class="hint">读之前会自动遮挡密钥、密码、身份证号、银行卡号、手机号、邮箱和电脑用户名；只有遮挡后的素材包会交给 __MODEL__，你可以先打开看一遍。</p>
+<label class="consent"><input type="checkbox" name="consent" value="1" id="ok"><span><b>我已了解，同意按上面的范围读取</b><br><small>随时可以停：删掉定时任务和「清见工作台」文件夹。</small></span></label>
 </fieldset>
 
 <div class="bar"><div class="in">
+<ol class="stepsdot" aria-label="完成进度">
+<li><a href="#s1" id="st1" aria-label="第 1 步 数据源">1</a></li>
+<li><a href="#s2" id="st2" aria-label="第 2 步 触发器">2</a></li>
+<li><a href="#s3" id="st3" aria-label="第 3 步 输出物">3</a></li>
+<li><a href="#s4" id="st4" aria-label="第 4 步 授权">4</a></li>
+</ol>
 <div class="say" id="say" aria-live="polite"></div>
-<button class="btn" id="go" type="submit" disabled>确认，开始搭建</button></div></div>
+<button class="btn" id="go" type="submit" disabled>确认并开始搭建</button></div></div>
 </form></div>
 <script>
 (function(){
@@ -1113,8 +1172,12 @@ function aiOn(){return $('input[name=src][value=ai_sessions]').checked}
 function sync(){
   var on=aiOn(),pick=val('mode')==='pick';
   $$('#aiopts input').forEach(function(e){if(!e.classList.contains('sel'))e.disabled=!on});
-  $('#aiopts').style.opacity=on?1:.45;
-  $('#tools').hidden=!(on&&pick);$('#allsum').hidden=!(on&&!pick);
+  $('#aiopts').classList.toggle('off',!on);
+  $('#tools').hidden=!(on&&pick);
+  var tt=$('input[name=trigger]:checked');tt=tt?tt.value:'daily';
+  $('#trigtime').hidden=tt==='manual';$('#trigmanual').hidden=tt!=='manual';
+  $('#dtime').hidden=tt==='weekly';$('#wday').hidden=tt!=='weekly';$('#wtime').hidden=tt!=='weekly';
+  $('#trigprefix').textContent=tt==='weekly'?'每周':'每天';
   $$('.sel').forEach(function(e){e.disabled=!(on&&pick)});
   say();
 }
@@ -1128,35 +1191,43 @@ f.addEventListener('change',function(e){
   if(t.classList.contains('tsel')){$$('.psel[data-t="'+t.dataset.t+'"]').forEach(function(p){p.checked=t.checked});toolState(t.dataset.t)}
   else if(t.classList.contains('psel')){toolState(t.dataset.t)}
   if(t.id==='ok')$('#go').disabled=!t.checked;
-  if(t.name==='src'||t.name==='mode')sync();else say();
+  if(t.name==='src'||t.name==='mode'||t.name==='trigger')sync();else say();
   $$('.err').forEach(function(x){x.classList.remove('on')});
 });
 f.addEventListener('input',function(e){if(e.target.classList.contains('filter')){var q=e.target.value.trim().toLowerCase();
   $$('.proj',e.target.parentNode).forEach(function(l){l.hidden=q&&l.dataset.name.indexOf(q)<0})}else say()});
-function srcText(){
+function srcLines(){
   var s=[];if(aiOn()){var pick=val('mode')==='pick';
-    if(!pick)s.push('全部 AI 会话');else{var n=$$('.tsel:checked').length+$$('.psel:checked').filter(function(p){return !$('.tsel[data-t="'+p.dataset.t+'"]').checked}).length;s.push(n?'勾选的 AI 会话':'AI 会话（还没勾选）')}}
-  if($('input[name=src][value=folder]').checked)s.push('本地文件夹');
-  if($('input[name=src][value=inbox]').checked)s.push('收集箱');
-  return s.join('、');
+    if(!pick)s.push('本地 AI 会话：全部工具，第一次只取最近 14 天');
+    else{var n=$$('.tsel:checked').length+$$('.psel:checked').filter(function(p){return !$('.tsel[data-t="'+p.dataset.t+'"]').checked}).length;
+    s.push(n?'本地 AI 会话：勾选的 '+n+' 项':'本地 AI 会话（还没勾选）')}}
+  if($('input[name=src][value=folder]').checked)s.push('本地文件夹：'+($('[name=folders]').value.split('\n')[0]||'（待填路径）'));
+  if($('input[name=src][value=inbox]').checked)s.push('收集箱里你放进去的文件');
+  return s;
 }
+function srcText(){var s=srcLines();s=s.map(function(x){return x.split('：')[0]});return s.join('、')}
 function trigText(){var t=val('trigger');
   if(t==='daily')return '每天 '+$('[name=daily_time]').value;
   if(t==='weekly')return '每'+$('[name=weekday]').value+' '+$('[name=weekly_time]').value;
   return '说「'+($('[name=phrase]').value||'运行我的工作台')+'」时';}
 function say(){
-  var src=srcText(),items=$('[name=out_items]').value.split('\\n').filter(function(x){return x.trim()}).length;
-  var fmt={html:'网页简报',page:'工作台主页'}[val('out_format')]||'文字版纪要';
-  $('#say').innerHTML=src?('读取<b>'+esc(src)+'</b>，<b>'+esc(trigText())+'</b>生成一份<b>'+items+' 块的'+fmt+'</b>。')
+  var lines=srcLines(),read=$('#readlist');
+  read.innerHTML=lines.length?lines.map(function(x){return '<li>'+esc(x)+'</li>'}).join(''):'<li>（还没有选择）</li>';
+  var items=$('[name=out_items]').value.split('\n').filter(function(x){return x.trim()}).length;
+  var fmt={html:'网页简报',page:'工作台主页'}[val('out_format')]||'文字版';
+  var st=[lines.length>0,true,true,$('#ok').checked];
+  ['st1','st2','st3','st4'].forEach(function(id,i){var a=document.getElementById(id);
+    a.textContent=st[i]?'✓':String(i+1);a.className=st[i]?'done':''});
+  $('#say').innerHTML=lines.length?('读取 '+lines.length+' 个数据源，'+esc(trigText())+'生成一份「'+esc($('[name=out_type]').value||'输出物')+'」（'+items+' 块 · '+fmt+'）。')
     :'还没有选择数据源。';
-  if(!$('#ok').checked)$('#say').innerHTML+='<span class="why">勾选第 4 步的「我已了解」后，就可以确认。</span>';
+  if(!$('#ok').checked)$('#say').innerHTML+='<span class="why">勾选第 4 步的同意后，就能确认。</span>';
 }
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 function fail(id,msg,sec){var e=document.getElementById(id);e.textContent=msg;e.classList.add('on');
   document.getElementById(sec).scrollIntoView({behavior:'smooth',block:'start'});return false}
 f.addEventListener('submit',function(e){
-  if(!$('input[name=src]:checked')){e.preventDefault();return fail('e1','请至少选择一个数据源。','s1')}
-  if(aiOn()&&val('mode')==='pick'&&!$('.sel:checked')){e.preventDefault();return fail('e1','你选了「只用我勾选的」，但还没有勾选任何工具或项目。展开下面的工具勾选，或改回「全部」。','s1')}
+  if(!$('input[name=src]:checked')){e.preventDefault();return fail('e1','至少选一个数据源，工作台才有东西可整理。','s1')}
+  if(aiOn()&&val('mode')==='pick'&&!$('.sel:checked')){e.preventDefault();return fail('e1','你选了「只用我勾选的」，但还没有勾选任何工具或项目。展开工具勾选，或改回「全部」。','s1')}
   if(!$('#ok').checked){e.preventDefault();return false}
   $('#go').disabled=true;$('#go').textContent='正在保存…';
 });
@@ -1261,14 +1332,16 @@ def _success_page(form: dict) -> str:
     skills = "、".join(form.get("skill", [])) or "无"
     return ("<!doctype html><html lang='zh-CN'><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
             "<title>已保存</title><style>body{font-family:'PingFang SC','Microsoft YaHei',system-ui,sans-serif;background:#eef3f3;color:#14262b;"
-            "font-size:18px;line-height:1.7;margin:0}main{max-width:640px;margin:60px auto;padding:0 22px}h1{font-size:28px;margin:0 0 6px}"
-            "dl{display:grid;grid-template-columns:5em 1fr;gap:6px 14px;background:#fff;border:1px solid #d3dfe0;border-radius:12px;padding:18px 22px}"
-            "dt{color:#4a5d62}dd{margin:0}p{color:#4a5d62}</style><main>"
-            "<h1>✓ 已保存</h1><p>可以关闭这个页面，回到 AI 工具继续。</p>"
+            "font-size:17px;line-height:1.65;margin:0}main{max-width:640px;margin:60px auto;padding:0 22px;display:flex;flex-direction:column;gap:16px}"
+            "h1{font-size:28px;margin:0;display:flex;align-items:center;gap:12px}"
+            ".ok{width:56px;height:56px;border-radius:50%;background:#0f6b6b;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:30px;flex:none}"
+            "dl{display:grid;grid-template-columns:5em 1fr;gap:6px 14px;background:#fbfcfc;border:1px solid #d5dedc;border-radius:12px;padding:16px 18px;margin:0}"
+            "dt{color:#4a5a5e}dd{margin:0}p{margin:0;color:#4a5a5e;font-size:15px}</style><main>"
+            "<h1><span class=\"ok\" aria-hidden=\"true\">✓</span>已保存，回到 AI 工具继续</h1><p>AI 会按你的选择收集、搭建，并跑出第一份结果。</p>"
             f"<dl><dt>数据源</dt><dd>{e(srcs)}</dd><dt>触发器</dt><dd>{e(trig)}</dd>"
             f"<dt>输出物</dt><dd>{e(g('out_type'))}（{e(fmt)}）：{e(items)}</dd><dt>给谁看</dt><dd>{e(g('out_aud'))}</dd>"
             f"<dt>技能</dt><dd>{e(skills)}</dd></dl>"
-            "<p>想改？回到 AI 工具说「重新选择」，会重新打开这个页面。这个页面的服务已经关闭，刷新会打不开，这是正常的。</p></main></html>")
+            "<p>想改？回到 AI 工具说「重新选择」，会重新打开这个页面。这个页面的服务已经关闭，刷新打不开是正常的。</p></main></html>")
 
 
 def _out_field(plan: dict, key: str, default: str) -> str:
