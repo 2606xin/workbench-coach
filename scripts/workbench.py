@@ -1590,6 +1590,17 @@ def collect(args):
         msgs += [m for m in load_all(home, only, projects=proj_keys, full_tools=full_tools,
                                      since=ad_since) if in_scope(m, scope)]
     msgs += load_folders(scope.get("folders", []), "本地文件夹")
+    # 飞书/微信通道（scope enabled 时拉取，独立游标；v1 回滚时曾丢失，11-16 恢复）
+    fmsgs, wmsgs = [], []
+    _fs = scope.get("feishu") or {}
+    if _fs.get("enabled"):
+        _fcur = parse_time(st.get("feishu_cursor")) or (now - dt.timedelta(days=args.days))
+        fmsgs = [m for m in load_feishu(_fcur, args.days, set(_fs.get("chats") or []) or None) if m.ts > _fcur]
+    _wf = scope.get("weflow") or {}
+    if _wf.get("enabled"):
+        _wcur = parse_time(st.get("weflow_cursor")) or (now - dt.timedelta(days=args.days))
+        wmsgs = [m for m in load_weflow(_wcur, args.days, set(_wf.get("chats") or []) or None) if m.ts > _wcur]
+    msgs = msgs + fmsgs + wmsgs
     if scope.get("inbox"):
         (out / "收集箱").mkdir(exist_ok=True)
         msgs += load_folders([str(out / "收集箱")], "收集箱")
@@ -1598,9 +1609,8 @@ def collect(args):
         return 1
     if st.get("baseline_done") and not args.rebuild:
         cur = parse_time(st.get("cursor"))
-        new = [m for m in msgs if cur is None or m.ts > cur]
+        sel = [m for m in msgs if cur is None or m.ts > cur] + fmsgs + wmsgs
         title, note = "会话素材包 · 增量", f"自上次（{cur.astimezone().strftime('%Y-%m-%d %H:%M') if cur else '—'}）以来的新会话"
-        sel = new
     else:
         sessions = {(m.tool, m.session) for m in msgs}
         chars = sum(len(m.text) for m in msgs)
@@ -1616,7 +1626,13 @@ def collect(args):
         return 0
     red = Redactor(home)
     p = write_pack(sel, out, red, title, note, scope.get("assistant", False), args.budget)
-    st["cursor"] = max(m.ts for m in msgs).isoformat()
+    _ai = [m for m in msgs if m.tool not in ("飞书", "微信")]
+    if _ai:
+        st["cursor"] = max(m.ts for m in _ai).isoformat()
+    if fmsgs:
+        st["feishu_cursor"] = max(m.ts for m in fmsgs).isoformat()
+    if wmsgs:
+        st["weflow_cursor"] = max(m.ts for m in wmsgs).isoformat()
     st["baseline_done"] = True
     st["runs"].append({"at": now.isoformat(), "type": "增量" if "增量" in title else "基线",
                        "messages": len(sel), "sessions": len({(m.tool, m.session) for m in sel}),
