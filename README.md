@@ -193,6 +193,14 @@ agent-dump 只覆盖到 ZCode 等工具的**默认安装路径**。正式上课�
 - [agent-dump](https://github.com/xingkaixin/agent-dump)（MIT）：本地会话读取与统一导出。
 - 同类项目可作参考：[cass](https://github.com/Dicklesworthstone/coding_agent_session_search)、[ctx](https://ctx.rs)、[convx](https://github.com/pascalwhoop/convx)、[Callimachus](https://github.com/BetaBots-LLC/callimachus)。
 
+## 变更日志
+
+| 版本 | 日期 | 变更 |
+|---|---|---|
+| v1.0 | 2026-11-10 | 首版：五步教练流程 + 本地收集/脱敏 + agent-dump 引擎 |
+| v1.1 | 2026-11-12 | 飞书官方通道 + 微信本地通道（WeFlow B 层）+ Hindsight 连接器 + 冷启动三补（AGENTS.md/触发词/转发话术） |
+| v1.1.1 | 2026-11-15 | pick 通道卡片（已 connect 可勾/未连灰卡）；哲人式苏格拉底引导；collect 通道合并修复；webbrowser 线程化 |
+
 ## 许可
 
 MIT，见 [LICENSE](LICENSE)。
