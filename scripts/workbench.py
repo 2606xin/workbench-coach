@@ -1058,6 +1058,12 @@ __PLAN__
 <div class="box">
 <label class="row"><input type="checkbox" name="src" value="inbox" __INBOX_CHECKED__>
 <span><span class="big">收集箱</span><span class="hint">在工作台里建一个「收集箱」文件夹。拿不到的数据（比如微信里的要点），复制成文件丢进去，后面全自动。</span></span></label></div>
+<div class="box">
+<label class="row"><input type="checkbox" name="src" value="feishu" __FEISHU_CHECKED__ __FEISHU_DIS__>
+<span><span class="big">飞书消息</span><span class="hint">__FEISHU_HINT__</span></span></label></div>
+<div class="box">
+<label class="row"><input type="checkbox" name="src" value="weflow" __WEFLOW_CHECKED__ __WEFLOW_DIS__>
+<span><span class="big">微信消息（本地）</span><span class="hint">__WEFLOW_HINT__</span></span></label></div>
 <div class="box v2">
 <label class="row"><input type="checkbox" disabled>
 <span><span class="big">企业微信、飞书、钉钉</span><span class="pill gray">v2 · 暂不可选</span>
@@ -1294,6 +1300,15 @@ def pick(args):
             plan = json.loads(plan_p.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             print(f"方案文件格式不对，已忽略：{plan_p}")
+    _old_scope = {}
+    _osp = out / "scope.json"
+    if _osp.exists():
+        try:
+            _old_scope = json.loads(_osp.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            pass
+    fs_on = bool((_old_scope.get("feishu") or {}).get("enabled"))
+    wf_on = bool((_old_scope.get("weflow") or {}).get("enabled")) and bool(os.environ.get("WEFLOW_TOKEN"))
     print("正在统计本地 AI 会话（只计数，不输出内容）……")
     summ = summ_from_adlist(home)  # 快路径：只用 agent-dump 列表元数据
     if summ is None:               # 没装 agent-dump 或列表失败 → 原来的慢路径
@@ -1316,6 +1331,10 @@ def pick(args):
             .replace("__TOKEN__", "{TOKEN}")
             .replace("__AI_CHECKED__", ck("ai_sessions" in sug and summ)).replace("__FOLDER_CHECKED__", ck("folder" in sug))
             .replace("__INBOX_CHECKED__", ck("inbox" in sug))
+            .replace("__FEISHU_CHECKED__", ck(fs_on)).replace("__FEISHU_DIS__", "" if fs_on else "disabled")
+            .replace("__FEISHU_HINT__", "已接入。勾选后每次运行自动拉取飞书群消息增量（脱敏后进素材包）。" if fs_on else "未接入。先运行：python3 scripts/workbench.py connect feishu（见 README 1.6）")
+            .replace("__WEFLOW_CHECKED__", ck(wf_on)).replace("__WEFLOW_DIS__", "" if wf_on else "disabled")
+            .replace("__WEFLOW_HINT__", "已接入（B 层，本机自用）。勾选后自动拉取微信会话增量（脱敏后进素材包）。" if wf_on else "未接入。先运行：python3 scripts/workbench.py connect weflow，并设置环境变量 WEFLOW_TOKEN（见 README 1.7）")
             .replace("__FOLDERS__", html.escape("\n".join(plan.get("folders") or [])))
             .replace("__T_DAILY__", ck(ttype == "daily")).replace("__T_WEEKLY__", ck(ttype == "weekly"))
             .replace("__T_MANUAL__", ck(ttype == "manual"))
@@ -1398,6 +1417,8 @@ def pick(args):
         "projects": result.get("proj", []),
         "folders": [x.strip() for x in g("folders").splitlines() if x.strip()] if "folder" in srcs else [],
         "inbox": "inbox" in srcs,
+        "feishu": {**(_old_scope.get("feishu") or {}), "enabled": "feishu" in srcs},
+        "weflow": {**(_old_scope.get("weflow") or {}), "enabled": "weflow" in srcs},
         "range": g("range", "auto"),
         "assistant": result.get("assistant") == ["1"],
         "trigger": trigger,
